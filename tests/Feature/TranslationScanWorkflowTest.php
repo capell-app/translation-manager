@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\TranslationManager\Actions\QueueTranslationScanAction;
+use Capell\TranslationManager\Actions\ScanMissingTranslationKeysAction;
 use Capell\TranslationManager\Jobs\RunTranslationScanJob;
 use Capell\TranslationManager\Models\TranslationScanRun;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
@@ -73,7 +74,33 @@ it('persists missing key scan results outside the Livewire request', function ()
         ->and(data_get($run->result, '0.key'))->toBe('messages.missing');
 });
 
-it('persists a bounded error when a queued scan fails', function (): void {
+it('keeps a scan retryable after a transient exception', function (): void {
+    $run = TranslationScanRun::query()->create([
+        'type' => QueueTranslationScanAction::MissingKeys,
+        'source_key' => 'test-source',
+        'source_locale' => 'en',
+        'status' => 'queued',
+    ]);
+    $action = Mockery::mock(new ScanMissingTranslationKeysAction);
+    app()->instance('LaravelActions:AsFake:' . ScanMissingTranslationKeysAction::class, $action);
+    $calls = 0;
+    $action->shouldReceive('handle')->twice()->andReturnUsing(function () use (&$calls): array {
+        if (++$calls === 1) {
+            throw new RuntimeException('Temporary scan failure');
+        }
+
+        return [];
+    });
+    $job = new RunTranslationScanJob(translationScanRunId($run));
+    expect(fn () => $job->handle())->toThrow(RuntimeException::class, 'Temporary scan failure');
+    expect($run->refresh()->status)->toBe('running')
+        ->and($run->finished_at)->toBeNull();
+    $job->handle();
+    expect($run->refresh()->status)->toBe('succeeded')
+        ->and($run->finished_at)->not->toBeNull();
+});
+
+it('persists a bounded error when a queued scan exhausts its retries', function (): void {
     $run = TranslationScanRun::query()->create([
         'type' => QueueTranslationScanAction::Readiness,
         'source_key' => 'unknown-source',
@@ -85,8 +112,11 @@ it('persists a bounded error when a queued scan fails', function (): void {
 
     try {
         (new RunTranslationScanJob(translationScanRunId($run)))->handle();
-    } catch (Throwable) {
+    } catch (Throwable $throwable) {
         $threw = true;
+        expect($run->refresh()->status)->toBe('running')
+            ->and($run->finished_at)->toBeNull();
+        (new RunTranslationScanJob(translationScanRunId($run)))->failed($throwable);
     }
 
     expect($threw)->toBeTrue()

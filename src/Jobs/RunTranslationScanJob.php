@@ -20,7 +20,9 @@ final class RunTranslationScanJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 1;
+    public int $tries = 3;
+
+    public int $backoff = 60;
 
     public int $timeout = 300;
 
@@ -41,21 +43,16 @@ final class RunTranslationScanJob implements ShouldBeUnique, ShouldQueue
 
         $run->update([
             'status' => 'running',
-            'started_at' => now(),
+            'started_at' => $run->started_at ?? now(),
             'error_message' => null,
         ]);
 
-        try {
-            $run->update([
-                'status' => 'succeeded',
-                'result' => $this->result($run),
-                'finished_at' => now(),
-            ]);
-        } catch (Throwable $throwable) {
-            $this->markFailed($run, $throwable);
-
-            throw $throwable;
-        }
+        // Keep the run eligible for retries; only failed() records terminal failure.
+        $run->update([
+            'status' => 'succeeded',
+            'result' => $this->result($run),
+            'finished_at' => now(),
+        ]);
     }
 
     public function failed(?Throwable $throwable): void
