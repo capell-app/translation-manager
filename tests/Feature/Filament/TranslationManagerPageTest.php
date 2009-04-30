@@ -15,12 +15,15 @@ use Capell\TranslationManager\Providers\TranslationManagerServiceProvider;
 use Capell\TranslationManager\Tests\Fixtures\TranslationPrismProviderFake;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
+use Filament\Panel;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as AuthenticatableUser;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 uses(TranslationManagerTestCase::class);
@@ -179,7 +182,7 @@ it('switches to the Prism translator and persists an accepted translation when A
     $provider = new TranslationPrismProviderFake('{"translations":{"title":"Bonjour"}}');
     app()->instance(PrismProvider::class, $provider);
 
-    (new TranslationManagerServiceProvider(app()))->registeringPackage();
+    new TranslationManagerServiceProvider(app())->registeringPackage();
 
     expect(CapellCore::isPackageAvailable(AIOrchestratorServiceProvider::$packageName))->toBeTrue()
         ->and(resolve(TranslationAITranslator::class))->toBeInstanceOf(PrismTranslationAITranslator::class);
@@ -368,6 +371,190 @@ it('rejects pending AI suggestions without changing target values', function ():
 
     expect($page->pendingAiSuggestions)->toBe([])
         ->and($page->entries[0]['targetValue'])->toBe('');
+});
+
+it('renders a target-locale queue with one primary continuation action and labelled secondary disclosure', function (): void {
+    $view = File::get(__DIR__ . '/../../../resources/views/filament/pages/translation-manager.blade.php');
+    $pageSource = File::get(__DIR__ . '/../../../src/Filament/Pages/TranslationManagerPage.php');
+
+    expect($view)
+        ->toContain('translation_work_queue')
+        ->toContain('translate_into')
+        ->toContain('continue_translating')
+        ->toContain('advanced_filters_and_tools')
+        ->toContain('locale_tools')
+        ->toContain('file_tools')
+        ->toContain('ai_tools')
+        ->toContain('<details')
+        ->toContain('beforeUnload(event)')
+        ->toContain("mountAction('createLocale')");
+
+    expect($pageSource)->toContain("__('capell-translation-manager::package.save_file')");
+});
+
+it('continues to the first actionable file and key in deterministic priority order', function (): void {
+    File::put($this->appLanguagePath . '/en/alpha.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'first' => 'First',
+];
+PHP);
+    File::put($this->appLanguagePath . '/fr/alpha.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'first' => '',
+];
+PHP);
+    File::put($this->appLanguagePath . '/en/zulu.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'last' => 'Last',
+];
+PHP);
+    File::put($this->appLanguagePath . '/fr/zulu.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'last' => '',
+];
+PHP);
+
+    /** @var TranslationManagerPage $page */
+    $page = resolve(TranslationManagerPage::class);
+    $page->mount();
+    $page->sourceKey = 'app';
+    $page->refreshBrowser();
+    $page->continueTranslating();
+
+    expect($page->fileKey)->toBe('php:alpha')
+        ->and($page->focusedEntryKey)->toBe('first')
+        ->and($page->filter)->toBe('needs_attention');
+});
+
+describe('Livewire translation journey', function (): void {
+    beforeEach(function (): void {
+        $this->actingAs(new class extends AuthenticatableUser
+        {
+            /** @use HasFactory<Factory<static>> */
+            use HasFactory;
+
+            /** @param iterable<int, mixed> $abilities */
+            public function can($abilities, $arguments = []): bool
+            {
+                return true;
+            }
+        });
+
+        $panel = Panel::make()->id('admin')->path('admin')->default();
+        Filament::registerPanel($panel);
+        Filament::setCurrentPanel($panel);
+    });
+
+    it('reveals the continued key in rendered Livewire output and requests focus every time', function (): void {
+        Livewire::test(TranslationManagerPage::class)
+            ->set('sourceKey', 'app')
+            ->set('filter', 'same')
+            ->call('continueTranslating')
+            ->assertSet('focusedEntryKey', 'title')
+            ->assertSeeHtml('data-focused-entry="title"')
+            ->assertDispatched('translation-manager-focus-entry', id: 'translation-entry-' . md5('title'))
+            ->call('continueTranslating')
+            ->assertDispatched('translation-manager-focus-entry', id: 'translation-entry-' . md5('title'));
+    });
+
+    it('keeps the navigation guard dirty after an unsaved Livewire edit and clears it after saving', function (): void {
+        Livewire::test(TranslationManagerPage::class)
+            ->set('sourceKey', 'app')
+            ->set('entries.0.targetValue', 'Bonjour')
+            ->assertSet('unsavedEntryCount', 1)
+            ->assertSeeHtml('data-unsaved-entry-count="1"')
+            ->assertSee(__('capell-translation-manager::package.unsaved_changes_hint'))
+            ->call('saveTranslations')
+            ->assertSet('unsavedEntryCount', 0)
+            ->assertSeeHtml('data-unsaved-entry-count="0"');
+    });
+});
+
+it('shows save, discard and stay decisions for dirty locale and file navigation', function (): void {
+    /** @var TranslationManagerPage $page */
+    $page = resolve(TranslationManagerPage::class);
+    $page->mount();
+    $page->sourceKey = 'app';
+    $page->refreshBrowser();
+    $page->entries[0]['targetValue'] = 'Bonjour';
+    $page->updatedEntries();
+
+    expect($page->dirtyEntryCount())->toBe(1)
+        ->and($page->hasUnsavedChanges())->toBeTrue();
+
+    $page->targetLocale = 'en';
+    $page->updatedTargetLocale();
+
+    expect($page->targetLocale)->toBe('fr')
+        ->and($page->pendingNavigation)->toMatchArray([
+            'property' => 'targetLocale',
+            'value' => 'en',
+        ]);
+
+    $page->stayOnCurrentFile();
+
+    expect($page->pendingNavigation)->toBeNull()
+        ->and($page->dirtyEntryCount())->toBe(1);
+
+    $page->targetLocale = 'en';
+    $page->updatedTargetLocale();
+    $page->discardChangesAndContinue();
+
+    expect($page->targetLocale)->toBe('en')
+        ->and($page->dirtyEntryCount())->toBe(0);
+});
+
+it('keeps dirty values when saving the current file fails', function (): void {
+    File::put($this->appLanguagePath . '/en/messages.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'cart' => 'You have :count items',
+];
+PHP);
+    File::put($this->appLanguagePath . '/fr/messages.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'cart' => '',
+];
+PHP);
+
+    /** @var TranslationManagerPage $page */
+    $page = resolve(TranslationManagerPage::class);
+    $page->mount();
+    $page->sourceKey = 'app';
+    $page->refreshBrowser();
+    $page->entries[0]['targetValue'] = 'Vous avez des articles';
+    $page->updatedEntries();
+
+    expect([$page->sourceKey, $page->fileKey, $page->targetLocale])->toBe(['app', 'php:messages', 'fr']);
+
+    expect($page->saveTranslations())->toBeFalse()
+        ->and($page->entries[0]['targetValue'])->toBe('Vous avez des articles')
+        ->and($page->dirtyEntryCount())->toBe(1)
+        ->and(File::getRequire($this->appLanguagePath . '/fr/messages.php'))
+        ->toBe(['cart' => '']);
 });
 
 /**

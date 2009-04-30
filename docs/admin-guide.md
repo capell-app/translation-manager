@@ -4,17 +4,24 @@ This guide is for editors who translate content and owners deciding which langua
 
 ## Using Translation Manager (editor how-to)
 
+### How to choose translation work
+
+1. Go to **Translation Manager** and choose **Translate into** for the locale you want to complete.
+2. Review the locale work queue. It shows Missing, Stale, Changed, Extra, Fallback, and Ready counts.
+3. Click **Continue translating** to open the next actionable file and key. The order is stable: missing, stale, then changed, followed by file and key order.
+4. File work starts at **Needs attention**. Use **Advanced filters and tools** when you need to inspect complete entries or specialist source/file controls.
+
 ### How to add a locale
 
 1. Go to **Translation Manager**.
-2. Click **Create locale** and choose the language.
+2. Open **Advanced filters and tools**, then choose **Create locale** and choose the language.
 3. Save. You can now translate content into it.
 
 ![A translator opens the Create locale action to add a new target locale.](screenshots/translation-manager-create-locale-modal.png)
 
 ### How to start a locale from an existing one
 
-1. In **Translation Manager**, click **Duplicate locale**.
+1. In **Translation Manager**, open **Advanced filters and tools**, then click **Duplicate locale**.
 2. Choose the **Source locale** to copy strings from, and the new target locale.
 3. Save. The new locale starts with the copied strings so you only have to adjust what differs.
 
@@ -22,7 +29,7 @@ This guide is for editors who translate content and owners deciding which langua
 
 ### How to edit a translation
 
-1. Open the translation editor for your locale.
+1. Open the translation editor for your locale, or use **Continue translating** from the work queue.
 2. Edit each translation side by side with the original **Source** text. The status of each entry (for example **Missing** or **Changed**) is shown next to it.
 3. Save as you go.
 
@@ -30,7 +37,7 @@ This guide is for editors who translate content and owners deciding which langua
 
 ### How to find what still needs translating
 
-1. Use the **Missing** filter.
+1. Open **Advanced filters and tools** and use the **Missing** filter, or keep the default **Needs attention** view.
 2. It shows the content that has no translation yet in your locale. When nothing matches, the source, locale, file, and filter controls stay on screen so you can change your view.
 3. Work through the list before launch.
 
@@ -39,7 +46,7 @@ This guide is for editors who translate content and owners deciding which langua
 ### How to draft translations with AI
 
 1. Select the entries you want drafted.
-2. Use **Translate selected** to draft target values for them. This is available when an AI translator is set up for your site.
+2. Open **Advanced filters and tools**, then use **Translate selected** to draft target values for them. This is available when an AI translator is set up for your site.
 3. Review every suggestion, then accept or reject it individually.
 4. Use **Save** to keep the accepted suggestions.
 
@@ -47,9 +54,10 @@ This guide is for editors who translate content and owners deciding which langua
 
 ### How to import or export translations
 
-1. First choose the **Source**, **Source locale**, **Target locale**, and translation **File** you want to work with.
-2. To bring in translations for that selected file, use **Import contents**, choose **CSV**, **PO**, or **XLIFF**, then paste the translated contents into the form.
+1. First choose the **Translate into** locale. Open **Advanced filters and tools** when you need a **Source**, **Source locale**, or translation **File**.
+2. To bring in translations for that selected file, use **Import translations**, choose **CSV**, **PO**, or **XLIFF**, then paste the translated contents into the form.
 3. To send out that selected file, use **Export CSV**, **Export PO**, or **Export XLIFF**.
+4. **Save this file** is the primary action. The page shows the number of unsaved entries and offers **Save and continue**, **Discard and continue**, or **Stay here** before locale, source, or file navigation.
 
 ## Rolling out Translation Manager (for owners)
 

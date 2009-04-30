@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\TranslationManager\Tests;
 
+use BladeUI\Heroicons\BladeHeroiconsServiceProvider;
+use BladeUI\Icons\BladeIconsServiceProvider;
 use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
@@ -29,11 +31,9 @@ class TranslationManagerTestCase extends TestCase
 {
     use InteractsWithSession;
 
-    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
-
         if (! Schema::hasTable('capell_translation_scan_runs')) {
             $migration = require __DIR__ . '/../database/migrations/2026_07_19_120000_create_translation_scan_runs_table.php';
             $migration->up();
@@ -47,6 +47,8 @@ class TranslationManagerTestCase extends TestCase
     protected function getPackageProviders(mixed $app): array
     {
         return [
+            BladeIconsServiceProvider::class,
+            BladeHeroiconsServiceProvider::class,
             ActionServiceProvider::class,
             ActionsServiceProvider::class,
             LaravelDataServiceProvider::class,
