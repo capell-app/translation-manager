@@ -237,7 +237,7 @@ final class TranslationManagerPage extends Page
                 $this->sourceKey,
                 $this->fileKey,
                 $this->targetLocale,
-                $this->currentEditableTranslationValues(),
+                $this->currentDirtyEditableTranslationValues(),
             );
         } catch (Throwable) {
             Notification::make()
@@ -941,7 +941,7 @@ final class TranslationManagerPage extends Page
     /**
      * @return array<string, string|null>
      */
-    private function currentEditableTranslationValues(): array
+    private function currentDirtyEditableTranslationValues(): array
     {
         if ($this->sourceKey === null || $this->fileKey === null || $this->targetLocale === null) {
             return [];
@@ -949,6 +949,15 @@ final class TranslationManagerPage extends Page
 
         $submittedEntries = collect($this->entries)
             ->keyBy(fn (array $entry): string => $entry['key']);
+        $dirtyKeys = $submittedEntries
+            ->filter(function (array $entry, string $key): bool {
+                $submittedValue = array_key_exists('targetValue', $entry) && is_string($entry['targetValue'])
+                    ? $entry['targetValue']
+                    : null;
+
+                return ($this->originalEntryValues[$key] ?? null) !== $submittedValue;
+            })
+            ->keys();
 
         return collect(LoadTranslationComparisonAction::run(
             $this->sourceKey,
@@ -956,12 +965,12 @@ final class TranslationManagerPage extends Page
             $this->sourceLocale,
             $this->targetLocale,
         ))
-            ->filter(fn (TranslationEntryData $entry): bool => $entry->editable)
+            ->filter(fn (TranslationEntryData $entry): bool => $entry->editable && $dirtyKeys->containsStrict($entry->key))
             ->mapWithKeys(function (TranslationEntryData $entry) use ($submittedEntries): array {
                 $submittedEntry = $submittedEntries->get($entry->key);
                 $submittedValue = is_array($submittedEntry) && array_key_exists('targetValue', $submittedEntry)
                     ? $submittedEntry['targetValue']
-                    : $entry->targetValue;
+                    : null;
 
                 return [$entry->key => is_string($submittedValue) ? $submittedValue : null];
             })

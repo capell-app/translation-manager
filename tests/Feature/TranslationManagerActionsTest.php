@@ -19,15 +19,22 @@ use Capell\TranslationManager\Actions\LoadTranslationComparisonAction;
 use Capell\TranslationManager\Actions\SaveTranslationEntriesAction;
 use Capell\TranslationManager\Actions\ScanMissingTranslationKeysAction;
 use Capell\TranslationManager\Contracts\TranslationFileStore;
+use Capell\TranslationManager\Contracts\TranslationSourceResolver;
 use Capell\TranslationManager\Data\TranslationCsvImportResultData;
 use Capell\TranslationManager\Data\TranslationEntryData;
+use Capell\TranslationManager\Data\TranslationWriteData;
+use Capell\TranslationManager\Exceptions\TranslationFileWriteException;
 use Capell\TranslationManager\Support\FileTranslationFileStore;
 use Capell\TranslationManager\Support\LocaleValidator;
+use Capell\TranslationManager\Tests\Fixtures\CoordinatedTranslationFilesystem;
 use Capell\TranslationManager\Tests\Fixtures\CountingFilesystem;
 use Capell\TranslationManager\Tests\Fixtures\PackageTranslationFixtureServiceProvider;
+use Capell\TranslationManager\Tests\Fixtures\PauseAfterTranslationPublishFilesystem;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 
 uses(TranslationManagerTestCase::class);
@@ -272,6 +279,16 @@ it('saves app language files in place while preserving unedited entries', functi
         ->and($values['nested']['body'])->toBe('Bienvenue');
 });
 
+it('keeps write coordination files outside translation sources', function (): void {
+    $targetPath = $this->appLanguagePath . '/fr/messages.php';
+
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', [
+        'title' => 'Salut',
+    ]);
+
+    expect(File::exists($targetPath . '.capell.lock'))->toBeFalse();
+});
+
 it('creates blank app locale files from source keys', function (): void {
     CreateLocaleFilesAction::run('app', 'es', 'en');
 
@@ -302,6 +319,359 @@ it('saves JSON language keys literally even when keys contain dots', function ()
         ->and($jsonValues)->not->toHaveKey('Sentence');
 });
 
+it('rejects invalid JSON translation bytes without replacing existing content', function (): void {
+    $targetPath = $this->appLanguagePath . '/fr.json';
+    $existingValues = [
+        'Existing key' => 'Existing value',
+        'Plain string' => 'Texte simple',
+    ];
+    File::put($targetPath, json_encode($existingValues, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+
+    $source = resolve(TranslationSourceResolver::class)->source('app');
+    $store = new FileTranslationFileStore(new Filesystem, resolve(LocaleValidator::class));
+
+    expect(function () use ($source, $store): void {
+        $store->write(new TranslationWriteData(
+            source: $source,
+            fileKey: 'json',
+            locale: 'fr',
+            values: ['Plain string' => "Invalid \xB1 byte"],
+        ));
+    })->toThrow(TranslationFileWriteException::class, 'Unable to encode translation file');
+
+    expect(json_decode(File::get($targetPath), true, flags: JSON_THROW_ON_ERROR))->toBe($existingValues);
+});
+
+it('rejects malformed existing JSON without replacing its bytes', function (): void {
+    $targetPath = $this->appLanguagePath . '/fr.json';
+    $existingContents = '{"Existing key":"Existing value"';
+    File::put($targetPath, $existingContents);
+
+    $source = resolve(TranslationSourceResolver::class)->source('app');
+    $store = new FileTranslationFileStore(new Filesystem, resolve(LocaleValidator::class));
+
+    expect(function () use ($source, $store): void {
+        $store->write(new TranslationWriteData(
+            source: $source,
+            fileKey: 'json',
+            locale: 'fr',
+            values: ['Plain string' => 'Texte simple'],
+        ));
+    })->toThrow(TranslationFileWriteException::class, 'Unable to read existing translation file');
+
+    expect(File::get($targetPath))->toBe($existingContents);
+});
+
+it('rejects existing translation files that do not contain an array', function (string $fileKey, string $relativePath, string $existingContents): void {
+    $targetPath = $this->appLanguagePath . '/' . $relativePath;
+    File::put($targetPath, $existingContents);
+
+    $source = resolve(TranslationSourceResolver::class)->source('app');
+    $store = new FileTranslationFileStore(new Filesystem, resolve(LocaleValidator::class));
+
+    expect(function () use ($fileKey, $source, $store): void {
+        $store->write(new TranslationWriteData(
+            source: $source,
+            fileKey: $fileKey,
+            locale: 'fr',
+            values: ['title' => 'Salut'],
+        ));
+    })->toThrow(TranslationFileWriteException::class, 'Unable to read existing translation file');
+
+    expect(File::get($targetPath))->toBe($existingContents);
+})->with([
+    'JSON scalar' => ['json', 'fr.json', '"not a translation map"'],
+    'PHP scalar' => ['php:messages', 'fr/messages.php', "<?php\n\ndeclare(strict_types=1);\n\nreturn 'not a translation map';\n"],
+]);
+
+it('rejects failed and short PHP writes without replacing existing content', function (string $failure): void {
+    $targetPath = $this->appLanguagePath . '/fr/messages.php';
+    $existingContents = File::get($targetPath);
+    $filesystem = new class($failure) extends Filesystem
+    {
+        public function __construct(private readonly string $failure) {}
+
+        #[Override]
+        public function put(mixed $path, mixed $contents, mixed $lock = false): int|false
+        {
+            if ($this->failure === 'failed') {
+                return false;
+            }
+
+            $result = parent::put($path, substr((string) $contents, 0, -1), $lock);
+
+            return is_int($result) ? $result : false;
+        }
+    };
+
+    $source = resolve(TranslationSourceResolver::class)->source('app');
+    $store = new FileTranslationFileStore($filesystem, resolve(LocaleValidator::class));
+
+    expect(function () use ($source, $store): void {
+        $store->write(new TranslationWriteData(
+            source: $source,
+            fileKey: 'php:messages',
+            locale: 'fr',
+            values: ['title' => 'Salut'],
+        ));
+    })->toThrow(TranslationFileWriteException::class, 'Unable to stage translation file');
+
+    expect(File::get($targetPath))->toBe($existingContents)
+        ->and(glob($targetPath . '.tmp.*') ?: [])->toBe([]);
+})->with([
+    'failed write' => ['failed'],
+    'short write' => ['short'],
+]);
+
+it('keeps translation content and source hashes together when metadata staging fails', function (): void {
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', [
+        'title' => 'Bonjour initial',
+    ]);
+
+    $targetPath = $this->appLanguagePath . '/fr/messages.php';
+    $metadataPath = $targetPath . '.capell-meta.json';
+    $existingContents = File::get($targetPath);
+    $existingMetadata = File::get($metadataPath);
+    $filesystem = new class extends Filesystem
+    {
+        #[Override]
+        public function put(mixed $path, mixed $contents, mixed $lock = false): int|false
+        {
+            if (is_string($path) && str_contains($path, '.capell-meta.json')) {
+                return false;
+            }
+
+            $result = parent::put($path, $contents, $lock);
+
+            return is_int($result) ? $result : false;
+        }
+    };
+
+    $source = resolve(TranslationSourceResolver::class)->source('app');
+    $store = new FileTranslationFileStore($filesystem, resolve(LocaleValidator::class));
+
+    expect(function () use ($source, $store): void {
+        $store->write(new TranslationWriteData(
+            source: $source,
+            fileKey: 'php:messages',
+            locale: 'fr',
+            values: ['title' => 'Salut'],
+        ));
+    })->toThrow(TranslationFileWriteException::class, 'Unable to stage translation file');
+
+    expect(File::get($targetPath))->toBe($existingContents)
+        ->and(File::get($metadataPath))->toBe($existingMetadata);
+});
+
+it('rolls back translation content when metadata publication fails', function (): void {
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', [
+        'title' => 'Bonjour initial',
+    ]);
+
+    $targetPath = $this->appLanguagePath . '/fr/messages.php';
+    $metadataPath = $targetPath . '.capell-meta.json';
+    $existingContents = File::get($targetPath);
+    $existingMetadata = File::get($metadataPath);
+    $filesystem = new class($metadataPath) extends Filesystem
+    {
+        private bool $failed = false;
+
+        public function __construct(private readonly string $metadataPath) {}
+
+        #[Override]
+        public function move(mixed $path, mixed $target): bool
+        {
+            if (! $this->failed && $target === $this->metadataPath) {
+                $this->failed = true;
+
+                return false;
+            }
+
+            return parent::move($path, $target);
+        }
+    };
+
+    $source = resolve(TranslationSourceResolver::class)->source('app');
+    $store = new FileTranslationFileStore($filesystem, resolve(LocaleValidator::class));
+
+    expect(function () use ($source, $store): void {
+        $store->write(new TranslationWriteData(
+            source: $source,
+            fileKey: 'php:messages',
+            locale: 'fr',
+            values: ['title' => 'Salut'],
+        ));
+    })->toThrow(TranslationFileWriteException::class, 'Unable to publish translation file');
+
+    expect(File::get($targetPath))->toBe($existingContents)
+        ->and(File::get($metadataPath))->toBe($existingMetadata)
+        ->and(File::exists($targetPath . '.capell-transaction.json'))->toBeFalse();
+});
+
+it('serialises concurrent translation updates without losing unrelated keys', function (): void {
+    $source = resolve(TranslationSourceResolver::class)->source('app');
+    $localeValidator = resolve(LocaleValidator::class);
+    $firstReady = $this->translationBasePath . '/first.ready';
+    $firstRelease = $this->translationBasePath . '/first.release';
+    $firstDone = $this->translationBasePath . '/first.done';
+    $secondReady = $this->translationBasePath . '/second.ready';
+    $secondRelease = $this->translationBasePath . '/second.release';
+    $secondDone = $this->translationBasePath . '/second.done';
+
+    $firstPid = pcntl_fork();
+    expect($firstPid)->toBeGreaterThanOrEqual(0);
+
+    if ($firstPid === 0) {
+        try {
+            $store = new FileTranslationFileStore(
+                new CoordinatedTranslationFilesystem($firstReady, $firstRelease),
+                $localeValidator,
+            );
+            $store->write(new TranslationWriteData(
+                source: $source,
+                fileKey: 'php:messages',
+                locale: 'fr',
+                values: ['nested.first' => 'Premier'],
+            ));
+            file_put_contents($firstDone, 'done', LOCK_EX);
+            exit(0);
+        } catch (Throwable $exception) {
+            file_put_contents($firstDone . '.error', $exception->getMessage(), LOCK_EX);
+            exit(1);
+        }
+    }
+
+    expect(waitForTranslationTestMarker($firstReady))->toBeTrue();
+
+    $secondPid = pcntl_fork();
+    expect($secondPid)->toBeGreaterThanOrEqual(0);
+
+    if ($secondPid === 0) {
+        try {
+            $store = new FileTranslationFileStore(
+                new CoordinatedTranslationFilesystem($secondReady, $secondRelease),
+                $localeValidator,
+            );
+            $store->write(new TranslationWriteData(
+                source: $source,
+                fileKey: 'php:messages',
+                locale: 'fr',
+                values: ['nested.second' => 'Deuxième'],
+            ));
+            file_put_contents($secondDone, 'done', LOCK_EX);
+            exit(0);
+        } catch (Throwable $exception) {
+            file_put_contents($secondDone . '.error', $exception->getMessage(), LOCK_EX);
+            exit(1);
+        }
+    }
+
+    $secondReachedWriteWhileFirstWasPaused = waitForTranslationTestMarker($secondReady, 1_000_000);
+
+    if ($secondReachedWriteWhileFirstWasPaused) {
+        File::put($secondRelease, 'release');
+        $secondCompletedFirst = waitForTranslationTestMarker($secondDone);
+        File::put($firstRelease, 'release');
+        $firstCompleted = waitForTranslationTestMarker($firstDone);
+    } else {
+        File::put($firstRelease, 'release');
+        $firstCompleted = waitForTranslationTestMarker($firstDone);
+        $secondReachedWriteAfterFirstCompleted = waitForTranslationTestMarker($secondReady);
+        File::put($secondRelease, 'release');
+        $secondCompletedFirst = waitForTranslationTestMarker($secondDone);
+
+        expect($secondReachedWriteAfterFirstCompleted)->toBeTrue();
+    }
+
+    pcntl_waitpid($firstPid, $firstStatus);
+    pcntl_waitpid($secondPid, $secondStatus);
+
+    expect($firstCompleted)->toBeTrue()
+        ->and($secondCompletedFirst)->toBeTrue()
+        ->and(pcntl_wifexited($firstStatus))->toBeTrue()
+        ->and(pcntl_wexitstatus($firstStatus))->toBe(0)
+        ->and(pcntl_wifexited($secondStatus))->toBeTrue()
+        ->and(pcntl_wexitstatus($secondStatus))->toBe(0);
+
+    $values = require $this->appLanguagePath . '/fr/messages.php';
+
+    expect($values['nested'] ?? null)->toBe([
+        'first' => 'Premier',
+        'second' => 'Deuxième',
+    ]);
+});
+
+it('recovers an interrupted publication before accepting the next write', function (): void {
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', [
+        'title' => 'Bonjour initial',
+    ]);
+
+    $source = resolve(TranslationSourceResolver::class)->source('app');
+    $localeValidator = resolve(LocaleValidator::class);
+    $targetPath = $this->appLanguagePath . '/fr/messages.php';
+    $publicationReady = $this->translationBasePath . '/publication.ready';
+    $publicationRelease = $this->translationBasePath . '/publication.release';
+    $childPid = pcntl_fork();
+    expect($childPid)->toBeGreaterThanOrEqual(0);
+
+    if ($childPid === 0) {
+        $store = new FileTranslationFileStore(
+            new PauseAfterTranslationPublishFilesystem($targetPath, $publicationReady, $publicationRelease),
+            $localeValidator,
+        );
+        $store->write(new TranslationWriteData(
+            source: $source,
+            fileKey: 'php:messages',
+            locale: 'fr',
+            values: ['title' => 'Interrupted title'],
+        ));
+        exit(1);
+    }
+
+    expect(waitForTranslationTestMarker($publicationReady))->toBeTrue()
+        ->and(posix_kill($childPid, SIGKILL))->toBeTrue();
+
+    pcntl_waitpid($childPid, $childStatus);
+
+    expect(pcntl_wifsignaled($childStatus))->toBeTrue()
+        ->and(pcntl_wtermsig($childStatus))->toBe(SIGKILL);
+
+    $comparison = collect(LoadTranslationComparisonAction::run('app', 'php:messages', 'en', 'fr'));
+
+    expect($comparison->firstWhere('key', 'title')?->targetValue)->toBe('Bonjour initial');
+
+    $store = new FileTranslationFileStore(new Filesystem, $localeValidator);
+    $store->write(new TranslationWriteData(
+        source: $source,
+        fileKey: 'php:messages',
+        locale: 'fr',
+        values: ['nested.body' => 'Corps final'],
+    ));
+
+    $values = require $targetPath;
+
+    expect($values['title'])->toBe('Bonjour initial')
+        ->and($values['nested']['body'])->toBe('Corps final')
+        ->and(File::exists($targetPath . '.capell-transaction.json'))->toBeFalse()
+        ->and(glob($targetPath . '.tmp.*') ?: [])->toBe([])
+        ->and(glob($targetPath . '.capell-meta.json.tmp.*') ?: [])->toBe([]);
+});
+
+function waitForTranslationTestMarker(string $path, int $timeoutMicroseconds = 5_000_000): bool
+{
+    $deadline = hrtime(true) + ($timeoutMicroseconds * 1_000);
+
+    while (! is_file($path)) {
+        if (hrtime(true) >= $deadline) {
+            return false;
+        }
+
+        Sleep::usleep(10_000);
+    }
+
+    return true;
+}
+
 it('exports compared translation entries as CSV', function (): void {
     $csv = ExportTranslationEntriesToCsvAction::run('app', 'php:messages', 'en', 'fr');
     $rows = array_map(
@@ -312,6 +682,30 @@ it('exports compared translation entries as CSV', function (): void {
     expect($rows[0])->toBe(['key', 'source_value', 'target_value', 'status'])
         ->and($rows)->toContain(['nested.body', 'Welcome', '', 'missing'])
         ->and($rows)->toContain(['title', 'Hello', 'Bonjour', 'changed']);
+});
+
+it('preserves raw formula-like translations through CSV round trips without PHP 8.4 deprecations', function (): void {
+    $values = ['title' => '=1+1', 'quoted' => 'A "quote" and a \\backslash', 'literal' => "'=literal"];
+    File::put($this->appLanguagePath . '/fr/messages.php', '<?php return ' . var_export($values, true) . ';');
+    set_error_handler(static function (int $severity, string $message, string $file, int $line): false {
+        if ($severity === E_DEPRECATED) {
+            throw new ErrorException($message, 0, $severity, $file, $line);
+        }
+
+        return false;
+    });
+    try {
+        $csv = ExportTranslationEntriesToCsvAction::run('app', 'php:messages', 'en', 'fr');
+        File::put($this->appLanguagePath . '/fr/messages.php', '<?php return [];');
+        ImportTranslationEntriesFromCsvAction::run('app', 'php:messages', 'fr', $csv);
+    } finally {
+        restore_error_handler();
+    }
+
+    $restored = require $this->appLanguagePath . '/fr/messages.php';
+    foreach ($values as $key => $value) {
+        expect($restored[$key])->toBe($value);
+    }
 });
 
 it('imports target translation values from CSV through the file store', function (): void {

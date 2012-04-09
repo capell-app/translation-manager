@@ -11,8 +11,13 @@ use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Data\TranslationFileData;
 use Capell\TranslationManager\Data\TranslationSourceData;
 use Capell\TranslationManager\Data\TranslationWriteData;
+use Capell\TranslationManager\Exceptions\TranslationFileWriteException;
+use Closure;
 use Illuminate\Filesystem\Filesystem;
 use InvalidArgumentException;
+use JsonException;
+use RuntimeException;
+use Throwable;
 
 final class FileTranslationFileStore implements TranslationFileStore
 {
@@ -173,7 +178,161 @@ final class FileTranslationFileStore implements TranslationFileStore
     {
         $this->localeValidator->assertValid($sourceLocale);
         $this->localeValidator->assertValid($targetLocale);
+        $path = $this->path($source, $fileKey, $targetLocale, true);
 
+        return $this->withExclusiveWriteLock($path, function () use ($fileKey, $path, $source, $sourceLocale, $targetLocale): array {
+            $this->recoverInterruptedPublication($path);
+
+            return $this->comparisonWhileLocked($source, $fileKey, $sourceLocale, $targetLocale);
+        });
+    }
+
+    public function createLocale(TranslationSourceData $source, string $locale, string $sourceLocale): void
+    {
+        $this->localeValidator->assertValid($locale);
+
+        foreach ($this->files($source, $sourceLocale, $sourceLocale) as $file) {
+            $sourceValues = TranslationArray::flattenStrings($this->read($source, $file->key, $sourceLocale, false));
+            $blankValues = array_fill_keys(array_keys($sourceValues), '');
+
+            $this->write(new TranslationWriteData(
+                source: $source,
+                fileKey: $file->key,
+                locale: $locale,
+                values: $blankValues,
+            ));
+        }
+    }
+
+    public function duplicateLocale(TranslationSourceData $source, string $fromLocale, string $targetLocale): void
+    {
+        $this->localeValidator->assertValid($fromLocale);
+        $this->localeValidator->assertValid($targetLocale);
+
+        foreach ($this->files($source, $fromLocale, $fromLocale) as $file) {
+            $values = TranslationArray::flattenStrings($this->read($source, $file->key, $fromLocale, false));
+
+            $this->write(new TranslationWriteData(
+                source: $source,
+                fileKey: $file->key,
+                locale: $targetLocale,
+                values: $values,
+            ));
+        }
+    }
+
+    public function write(TranslationWriteData $write): void
+    {
+        $this->localeValidator->assertValid($write->locale);
+        $this->assertTranslationIntegrity($write);
+        $path = $this->path($write->source, $write->fileKey, $write->locale, true);
+
+        $this->withExclusiveWriteLock($path, function () use ($path, $write): void {
+            $this->recoverInterruptedPublication($path);
+            $currentValues = $this->read($write->source, $write->fileKey, $write->locale, true);
+
+            foreach ($write->values as $key => $value) {
+                if ($write->fileKey === 'json') {
+                    $currentValues[$key] = $value ?? '';
+
+                    continue;
+                }
+
+                $currentValues = TranslationArray::setNestedValue($currentValues, $key, $value ?? '');
+            }
+
+            /** @var non-empty-list<array{path: string, contents: string, values: array<string, mixed>, type: 'json'|'php'}> $artifacts */
+            $artifacts = [$this->translationArtifact($write->source, $write->fileKey, $write->locale, $currentValues)];
+            $metadataArtifact = $this->sourceHashMetadataArtifact($write);
+
+            if ($metadataArtifact !== null) {
+                $artifacts[] = $metadataArtifact;
+            }
+
+            $this->publishArtifactsAtomically($artifacts);
+        });
+        $this->flushSourceCache($write->source);
+    }
+
+    public function exportCsv(TranslationSourceData $source, string $fileKey, string $sourceLocale, string $targetLocale): string
+    {
+        $stream = fopen('php://temp', 'r+');
+
+        throw_if($stream === false, InvalidArgumentException::class, 'Unable to open temporary translation CSV stream.');
+
+        try {
+            fputcsv($stream, ['key', 'source_value', 'target_value', 'status'], escape: '\\');
+
+            foreach ($this->comparison($source, $fileKey, $sourceLocale, $targetLocale) as $entry) {
+                fputcsv($stream, [
+                    $entry->key,
+                    $entry->sourceValue ?? '',
+                    $entry->targetValue ?? '',
+                    $entry->status,
+                ], escape: '\\');
+            }
+
+            rewind($stream);
+            $contents = stream_get_contents($stream);
+
+            return $contents === false ? '' : $contents;
+        } finally {
+            fclose($stream);
+        }
+    }
+
+    public function importCsv(TranslationSourceData $source, string $fileKey, string $locale, string $contents): TranslationCsvImportResultData
+    {
+        $stream = fopen('php://temp', 'r+');
+
+        throw_if($stream === false, InvalidArgumentException::class, 'Unable to open temporary translation CSV stream.');
+
+        try {
+            fwrite($stream, $contents);
+            rewind($stream);
+
+            $headers = $this->readCsvHeaders($stream);
+            $keyIndex = array_search('key', $headers, true);
+            $targetValueIndex = array_search('target_value', $headers, true);
+
+            throw_if(! is_int($keyIndex) || ! is_int($targetValueIndex), InvalidArgumentException::class, 'Translation CSV must contain key and target_value columns.');
+
+            $values = [];
+            $skippedCount = 0;
+
+            while (($row = fgetcsv($stream, escape: '\\')) !== false) {
+                $key = $this->csvCell($row, $keyIndex);
+
+                if ($key === '') {
+                    $skippedCount++;
+
+                    continue;
+                }
+
+                $values[$key] = $this->csvCell($row, $targetValueIndex);
+            }
+
+            $this->write(new TranslationWriteData(
+                source: $source,
+                fileKey: $fileKey,
+                locale: $locale,
+                values: $values,
+            ));
+
+            return new TranslationCsvImportResultData(
+                importedCount: count($values),
+                skippedCount: $skippedCount,
+            );
+        } finally {
+            fclose($stream);
+        }
+    }
+
+    /**
+     * @return array<int, TranslationEntryData>
+     */
+    private function comparisonWhileLocked(TranslationSourceData $source, string $fileKey, string $sourceLocale, string $targetLocale): array
+    {
         $cacheKey = $this->comparisonCacheKey($source, $fileKey, $sourceLocale, $targetLocale);
 
         if (array_key_exists($cacheKey, $this->comparisonCache)) {
@@ -228,133 +387,37 @@ final class FileTranslationFileStore implements TranslationFileStore
         return $this->comparisonCache[$cacheKey] = $entries;
     }
 
-    public function createLocale(TranslationSourceData $source, string $locale, string $sourceLocale): void
+    /**
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
+     */
+    private function withExclusiveWriteLock(string $path, Closure $callback): mixed
     {
-        $this->localeValidator->assertValid($locale);
-
-        foreach ($this->files($source, $sourceLocale, $sourceLocale) as $file) {
-            $sourceValues = TranslationArray::flattenStrings($this->read($source, $file->key, $sourceLocale, false));
-            $blankValues = array_fill_keys(array_keys($sourceValues), '');
-
-            $this->write(new TranslationWriteData(
-                source: $source,
-                fileKey: $file->key,
-                locale: $locale,
-                values: $blankValues,
-            ));
-        }
-    }
-
-    public function duplicateLocale(TranslationSourceData $source, string $fromLocale, string $targetLocale): void
-    {
-        $this->localeValidator->assertValid($fromLocale);
-        $this->localeValidator->assertValid($targetLocale);
-
-        foreach ($this->files($source, $fromLocale, $fromLocale) as $file) {
-            $values = TranslationArray::flattenStrings($this->read($source, $file->key, $fromLocale, false));
-
-            $this->write(new TranslationWriteData(
-                source: $source,
-                fileKey: $file->key,
-                locale: $targetLocale,
-                values: $values,
-            ));
-        }
-    }
-
-    public function write(TranslationWriteData $write): void
-    {
-        $this->localeValidator->assertValid($write->locale);
-        $this->assertTranslationIntegrity($write);
-
-        $currentValues = $this->read($write->source, $write->fileKey, $write->locale, true);
-
-        foreach ($write->values as $key => $value) {
-            if ($write->fileKey === 'json') {
-                $currentValues[$key] = $value ?? '';
-
-                continue;
-            }
-
-            $currentValues = TranslationArray::setNestedValue($currentValues, $key, $value ?? '');
-        }
-
-        $this->writeValues($write->source, $write->fileKey, $write->locale, $currentValues);
-        $this->writeSourceHashMetadata($write);
-        $this->flushSourceCache($write->source);
-    }
-
-    public function exportCsv(TranslationSourceData $source, string $fileKey, string $sourceLocale, string $targetLocale): string
-    {
-        $stream = fopen('php://temp', 'r+');
-
-        throw_if($stream === false, InvalidArgumentException::class, 'Unable to open temporary translation CSV stream.');
+        $this->filesystem->ensureDirectoryExists(dirname($path));
+        $lockPath = storage_path('framework/cache/capell-translation-manager/locks/' . hash('sha256', $path) . '.lock');
+        $this->filesystem->ensureDirectoryExists(dirname($lockPath));
 
         try {
-            fputcsv($stream, ['key', 'source_value', 'target_value', 'status']);
-
-            foreach ($this->comparison($source, $fileKey, $sourceLocale, $targetLocale) as $entry) {
-                fputcsv($stream, [
-                    $entry->key,
-                    $entry->sourceValue ?? '',
-                    $entry->targetValue ?? '',
-                    $entry->status,
-                ]);
-            }
-
-            rewind($stream);
-            $contents = stream_get_contents($stream);
-
-            return $contents === false ? '' : $contents;
-        } finally {
-            fclose($stream);
+            $lock = fopen($lockPath, 'c+b');
+        } catch (Throwable $exception) {
+            throw TranslationFileWriteException::lockFailed($path, $exception);
         }
-    }
 
-    public function importCsv(TranslationSourceData $source, string $fileKey, string $locale, string $contents): TranslationCsvImportResultData
-    {
-        $stream = fopen('php://temp', 'r+');
-
-        throw_if($stream === false, InvalidArgumentException::class, 'Unable to open temporary translation CSV stream.');
+        if ($lock === false) {
+            throw TranslationFileWriteException::lockFailed($path);
+        }
 
         try {
-            fwrite($stream, $contents);
-            rewind($stream);
-
-            $headers = $this->readCsvHeaders($stream);
-            $keyIndex = array_search('key', $headers, true);
-            $targetValueIndex = array_search('target_value', $headers, true);
-
-            throw_if(! is_int($keyIndex) || ! is_int($targetValueIndex), InvalidArgumentException::class, 'Translation CSV must contain key and target_value columns.');
-
-            $values = [];
-            $skippedCount = 0;
-
-            while (($row = fgetcsv($stream)) !== false) {
-                $key = $this->csvCell($row, $keyIndex);
-
-                if ($key === '') {
-                    $skippedCount++;
-
-                    continue;
-                }
-
-                $values[$key] = $this->csvCell($row, $targetValueIndex);
+            if (! flock($lock, LOCK_EX)) {
+                throw TranslationFileWriteException::lockFailed($path);
             }
 
-            $this->write(new TranslationWriteData(
-                source: $source,
-                fileKey: $fileKey,
-                locale: $locale,
-                values: $values,
-            ));
-
-            return new TranslationCsvImportResultData(
-                importedCount: count($values),
-                skippedCount: $skippedCount,
-            );
+            return $callback();
         } finally {
-            fclose($stream);
+            flock($lock, LOCK_UN);
+            fclose($lock);
         }
     }
 
@@ -482,18 +545,48 @@ final class FileTranslationFileStore implements TranslationFileStore
                 return [];
             }
 
-            $decoded = json_decode($this->filesystem->get($path), true);
+            try {
+                $decoded = json_decode($this->filesystem->get($path), true, flags: JSON_THROW_ON_ERROR);
 
-            return is_array($decoded) ? $decoded : [];
+                return $this->validatedTranslationMap($decoded, 'JSON');
+            } catch (Throwable $exception) {
+                throw TranslationFileWriteException::readingFailed($path, $exception);
+            }
         }
 
         if (! $this->filesystem->exists($path)) {
             return [];
         }
 
-        $values = require $path;
+        try {
+            $values = require $path;
 
-        return is_array($values) ? $values : [];
+            return $this->validatedTranslationMap($values, 'PHP');
+        } catch (Throwable $exception) {
+            throw TranslationFileWriteException::readingFailed($path, $exception);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validatedTranslationMap(mixed $values, string $format): array
+    {
+        if (! is_array($values)) {
+            throw new RuntimeException(sprintf('%s translation files must contain a map.', $format));
+        }
+
+        $validated = [];
+
+        foreach ($values as $key => $value) {
+            if (! is_string($key)) {
+                throw new RuntimeException(sprintf('%s translation file keys must be strings.', $format));
+            }
+
+            $validated[$key] = $value;
+        }
+
+        return $validated;
     }
 
     /**
@@ -534,28 +627,184 @@ final class FileTranslationFileStore implements TranslationFileStore
 
     /**
      * @param  array<string, mixed>  $values
+     * @return array{path: string, contents: string, values: array<string, mixed>, type: 'json'|'php'}
      */
-    private function writeValues(TranslationSourceData $source, string $fileKey, string $locale, array $values): void
+    private function translationArtifact(TranslationSourceData $source, string $fileKey, string $locale, array $values): array
     {
         $path = $this->path($source, $fileKey, $locale, true);
-        $this->filesystem->ensureDirectoryExists(dirname($path));
 
         if ($fileKey === 'json') {
-            $encoded = json_encode($values, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            $this->filesystem->put($path, ($encoded === false ? '{}' : $encoded) . PHP_EOL);
+            try {
+                $encoded = json_encode($values, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+            } catch (JsonException $exception) {
+                throw TranslationFileWriteException::encodingFailed($path, $exception);
+            }
 
-            return;
+            return [
+                'path' => $path,
+                'contents' => $encoded . PHP_EOL,
+                'values' => $values,
+                'type' => 'json',
+            ];
         }
 
-        $this->filesystem->put($path, $this->exportPhpArray($values));
+        return [
+            'path' => $path,
+            'contents' => $this->exportPhpArray($values),
+            'values' => $values,
+            'type' => 'php',
+        ];
     }
 
-    private function writeSourceHashMetadata(TranslationWriteData $write): void
+    /**
+     * @param  non-empty-list<array{path: string, contents: string, values: array<string, mixed>, type: 'json'|'php'}>  $artifacts
+     */
+    private function publishArtifactsAtomically(array $artifacts): void
+    {
+        /** @var array<string, string> $stagedPaths */
+        $stagedPaths = [];
+        /** @var array<string, array{exists: bool, contents: string|null}> $originals */
+        $originals = [];
+        $translationPath = $artifacts[0]['path'];
+        $journalPath = $this->publicationJournalPath($translationPath);
+        $journalPublished = false;
+
+        try {
+            foreach ($artifacts as $artifact) {
+                $path = $artifact['path'];
+                $this->filesystem->ensureDirectoryExists(dirname($path));
+                $originals[$path] = $this->originalArtifact($path);
+                $stagedPaths[$path] = $this->stageArtifact($artifact);
+            }
+
+            $this->publishPublicationJournal($journalPath, $originals, $stagedPaths);
+            $journalPublished = true;
+
+            foreach ($artifacts as $artifact) {
+                $path = $artifact['path'];
+                $this->publishStagedFile($stagedPaths[$path], $path);
+            }
+
+            if (! $this->filesystem->delete($journalPath)) {
+                throw TranslationFileWriteException::publicationFailed($journalPath);
+            }
+
+            $journalPublished = false;
+        } catch (Throwable $exception) {
+            if ($journalPublished && $this->filesystem->exists($journalPath)) {
+                try {
+                    $this->recoverInterruptedPublication($translationPath);
+                } catch (Throwable $rollbackException) {
+                    throw TranslationFileWriteException::rollbackFailed($translationPath, $rollbackException);
+                }
+            }
+
+            throw $exception;
+        } finally {
+            foreach ($stagedPaths as $temporaryPath) {
+                if ($this->filesystem->exists($temporaryPath)) {
+                    $this->filesystem->delete($temporaryPath);
+                }
+            }
+        }
+    }
+
+    /**
+     * @param  array{path: string, contents: string, values: array<string, mixed>, type: 'json'|'php'}  $artifact
+     */
+    private function stageArtifact(array $artifact): string
+    {
+        $temporaryPath = $this->stageContents($artifact['path'], $artifact['contents']);
+
+        try {
+            $this->validateStagedFile(
+                $temporaryPath,
+                $artifact['contents'],
+                $artifact['values'],
+                $artifact['type'],
+                $artifact['path'],
+            );
+        } catch (Throwable $exception) {
+            $this->deleteTemporaryArtifact($temporaryPath);
+
+            throw $exception;
+        }
+
+        return $temporaryPath;
+    }
+
+    private function stageContents(string $path, string $contents): string
+    {
+        $temporaryPath = $path . '.tmp.' . bin2hex(random_bytes(8));
+
+        try {
+            $bytesWritten = $this->filesystem->put($temporaryPath, $contents, true);
+        } catch (Throwable $exception) {
+            $this->deleteTemporaryArtifact($temporaryPath);
+
+            throw TranslationFileWriteException::stagingFailed($path, $exception);
+        }
+
+        if ($bytesWritten !== strlen($contents)) {
+            $this->deleteTemporaryArtifact($temporaryPath);
+
+            throw TranslationFileWriteException::stagingFailed($path);
+        }
+
+        try {
+            if ($this->filesystem->get($temporaryPath) !== $contents) {
+                throw TranslationFileWriteException::validationFailed($path);
+            }
+        } catch (TranslationFileWriteException $exception) {
+            $this->deleteTemporaryArtifact($temporaryPath);
+
+            throw $exception;
+        } catch (Throwable $exception) {
+            $this->deleteTemporaryArtifact($temporaryPath);
+
+            throw TranslationFileWriteException::validationFailed($path, $exception);
+        }
+
+        return $temporaryPath;
+    }
+
+    /**
+     * @param  array<string, mixed>  $expectedValues
+     * @param  'json'|'php'  $type
+     */
+    private function validateStagedFile(
+        string $temporaryPath,
+        string $contents,
+        array $expectedValues,
+        string $type,
+        string $path,
+    ): void {
+        try {
+            if ($this->filesystem->get($temporaryPath) !== $contents) {
+                throw TranslationFileWriteException::validationFailed($path);
+            }
+
+            $stagedValues = $type === 'json'
+                ? json_decode($contents, true, flags: JSON_THROW_ON_ERROR)
+                : (static fn (string $file): mixed => require $file)($temporaryPath);
+
+            if ($stagedValues !== $expectedValues) {
+                throw TranslationFileWriteException::validationFailed($path);
+            }
+        } catch (TranslationFileWriteException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            throw TranslationFileWriteException::validationFailed($path, $exception);
+        }
+    }
+
+    /** @return array{path: string, contents: string, values: array<string, mixed>, type: 'json'}|null */
+    private function sourceHashMetadataArtifact(TranslationWriteData $write): ?array
     {
         $sourceLocale = config('capell-translation-manager.source_locale', 'en');
 
         if (! is_string($sourceLocale) || $sourceLocale === '' || $sourceLocale === $write->locale) {
-            return;
+            return null;
         }
 
         $sourceValues = TranslationArray::flattenStrings($this->read($write->source, $write->fileKey, $sourceLocale, false));
@@ -574,9 +823,170 @@ final class FileTranslationFileStore implements TranslationFileStore
         }
 
         $metadataPath = $this->metadataPath($write->source, $write->fileKey, $write->locale);
-        $this->filesystem->ensureDirectoryExists(dirname($metadataPath));
-        $encoded = json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-        $this->filesystem->put($metadataPath, ($encoded === false ? '{}' : $encoded) . PHP_EOL);
+
+        try {
+            $encoded = json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw TranslationFileWriteException::encodingFailed($metadataPath, $exception);
+        }
+
+        return [
+            'path' => $metadataPath,
+            'contents' => $encoded . PHP_EOL,
+            'values' => $metadata,
+            'type' => 'json',
+        ];
+    }
+
+    /** @return array{exists: bool, contents: string|null} */
+    private function originalArtifact(string $path): array
+    {
+        if (! $this->filesystem->exists($path)) {
+            return ['exists' => false, 'contents' => null];
+        }
+
+        return ['exists' => true, 'contents' => $this->filesystem->get($path)];
+    }
+
+    private function publishStagedFile(string $temporaryPath, string $path): void
+    {
+        try {
+            $published = $this->filesystem->move($temporaryPath, $path);
+        } catch (Throwable $exception) {
+            throw TranslationFileWriteException::publicationFailed($path, $exception);
+        }
+
+        if (! $published) {
+            throw TranslationFileWriteException::publicationFailed($path);
+        }
+    }
+
+    /**
+     * @param  array<string, array{exists: bool, contents: string|null}>  $originals
+     * @param  array<string, string>  $stagedPaths
+     */
+    private function publishPublicationJournal(string $journalPath, array $originals, array $stagedPaths): void
+    {
+        $artifacts = [];
+
+        foreach ($originals as $path => $original) {
+            $artifacts[] = [
+                'path' => $path,
+                'staged_path' => $stagedPaths[$path],
+                'existed' => $original['exists'],
+                'contents' => base64_encode($original['contents'] ?? ''),
+            ];
+        }
+
+        try {
+            $contents = json_encode([
+                'version' => 1,
+                'artifacts' => $artifacts,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
+        } catch (JsonException $exception) {
+            throw TranslationFileWriteException::encodingFailed($journalPath, $exception);
+        }
+
+        $this->publishContentsAtomically($journalPath, $contents);
+    }
+
+    private function recoverInterruptedPublication(string $translationPath): void
+    {
+        $journalPath = $this->publicationJournalPath($translationPath);
+
+        if (! $this->filesystem->exists($journalPath)) {
+            return;
+        }
+
+        try {
+            $journal = json_decode($this->filesystem->get($journalPath), true, flags: JSON_THROW_ON_ERROR);
+        } catch (Throwable $exception) {
+            throw TranslationFileWriteException::rollbackFailed($translationPath, $exception);
+        }
+
+        if (! is_array($journal) || ($journal['version'] ?? null) !== 1 || ! is_array($journal['artifacts'] ?? null)) {
+            throw TranslationFileWriteException::rollbackFailed(
+                $translationPath,
+                new RuntimeException('Translation publication journal is invalid.'),
+            );
+        }
+
+        $allowedPaths = [$translationPath, $translationPath . '.capell-meta.json'];
+
+        foreach (array_reverse($journal['artifacts']) as $artifact) {
+            if (! is_array($artifact)) {
+                throw TranslationFileWriteException::rollbackFailed(
+                    $translationPath,
+                    new RuntimeException('Translation publication journal artifact is invalid.'),
+                );
+            }
+
+            $path = $artifact['path'] ?? null;
+            $stagedPath = $artifact['staged_path'] ?? null;
+            $existed = $artifact['existed'] ?? null;
+            $encodedContents = $artifact['contents'] ?? null;
+
+            if (! is_string($path)
+                || ! in_array($path, $allowedPaths, true)
+                || ! is_string($stagedPath)
+                || dirname($stagedPath) !== dirname($path)
+                || ! str_starts_with(basename($stagedPath), basename($path) . '.tmp.')
+                || ! is_bool($existed)
+                || ! is_string($encodedContents)) {
+                throw TranslationFileWriteException::rollbackFailed(
+                    $translationPath,
+                    new RuntimeException('Translation publication journal artifact is unsafe.'),
+                );
+            }
+
+            $contents = base64_decode($encodedContents, true);
+
+            if (! is_string($contents)) {
+                throw TranslationFileWriteException::rollbackFailed(
+                    $translationPath,
+                    new RuntimeException('Translation publication journal contents are invalid.'),
+                );
+            }
+
+            if (! $existed) {
+                if ($this->filesystem->exists($path) && ! $this->filesystem->delete($path)) {
+                    throw TranslationFileWriteException::publicationFailed($path);
+                }
+            } else {
+                $this->publishContentsAtomically($path, $contents);
+            }
+
+            if ($this->filesystem->exists($stagedPath) && ! $this->filesystem->delete($stagedPath)) {
+                throw TranslationFileWriteException::publicationFailed($stagedPath);
+            }
+        }
+
+        if (! $this->filesystem->delete($journalPath)) {
+            throw TranslationFileWriteException::publicationFailed($journalPath);
+        }
+    }
+
+    private function publishContentsAtomically(string $path, string $contents): void
+    {
+        $temporaryPath = $this->stageContents($path, $contents);
+
+        try {
+            $this->publishStagedFile($temporaryPath, $path);
+        } finally {
+            $this->deleteTemporaryArtifact($temporaryPath);
+        }
+    }
+
+    private function deleteTemporaryArtifact(string $path): void
+    {
+        if ($this->filesystem->exists($path)) {
+            $this->filesystem->delete($path);
+        }
+    }
+
+    private function publicationJournalPath(string $translationPath): string
+    {
+        return $translationPath . '.capell-transaction.json';
     }
 
     private function path(TranslationSourceData $source, string $fileKey, string $locale, bool $forWrite): string
@@ -814,7 +1224,7 @@ final class FileTranslationFileStore implements TranslationFileStore
      */
     private function readCsvHeaders(mixed $stream): array
     {
-        $headers = fgetcsv($stream);
+        $headers = fgetcsv($stream, escape: '\\');
 
         throw_if($headers === false, InvalidArgumentException::class, 'Translation CSV must contain a header row.');
 

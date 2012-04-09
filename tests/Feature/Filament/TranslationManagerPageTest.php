@@ -486,6 +486,55 @@ describe('Livewire translation journey', function (): void {
             ->assertSet('unsavedEntryCount', 0)
             ->assertSeeHtml('data-unsaved-entry-count="0"');
     });
+
+    it('preserves another editors translation when saving a different key from stale page state', function (): void {
+        File::put($this->appLanguagePath . '/en/messages.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'title' => 'Title',
+    'body' => 'Body',
+];
+PHP);
+        File::put($this->appLanguagePath . '/fr/messages.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'title' => 'A',
+    'body' => 'B',
+];
+PHP);
+
+        $firstEditor = Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app');
+        $secondEditor = Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app');
+        $entries = $firstEditor->get('entries');
+
+        throw_unless(is_array($entries), RuntimeException::class, 'Expected the translation page to expose editable entries.');
+
+        $titleIndex = collect($entries)->search(fn (array $entry): bool => $entry['key'] === 'title');
+        $bodyIndex = collect($entries)->search(fn (array $entry): bool => $entry['key'] === 'body');
+
+        throw_unless(is_int($titleIndex), RuntimeException::class, 'Expected a title translation entry.');
+        throw_unless(is_int($bodyIndex), RuntimeException::class, 'Expected a body translation entry.');
+
+        $firstEditor
+            ->set("entries.{$titleIndex}.targetValue", 'A2')
+            ->call('saveTranslations');
+
+        $secondEditor
+            ->set("entries.{$bodyIndex}.targetValue", 'B2')
+            ->call('saveTranslations');
+
+        expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))
+            ->toBe([
+                'title' => 'A2',
+                'body' => 'B2',
+            ]);
+    });
 });
 
 it('shows save, discard and stay decisions for dirty locale and file navigation', function (): void {
