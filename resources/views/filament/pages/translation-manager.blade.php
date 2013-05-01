@@ -565,8 +565,8 @@
                         >
                             @foreach ($filteredEntries as $entry)
                                 <tr
-                                    id="translation-entry-{{ md5($entry['key']) }}"
-                                    wire:key="translation-entry-{{ md5($sourceKey . ':' . $fileKey . ':' . $targetLocale . ':' . $entry['key']) }}"
+                                    id="translation-entry-{{ hash('xxh128', $entry['key']) }}"
+                                    wire:key="translation-entry-{{ hash('xxh128', $sourceKey . ':' . $fileKey . ':' . $targetLocale . ':' . $entry['key']) }}"
                                     data-translation-key="{{ $entry['key'] }}"
                                     data-focused-entry="{{ $focusedEntryKey === $entry['key'] ? $entry['key'] : '' }}"
                                     tabindex="-1"

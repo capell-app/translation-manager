@@ -184,8 +184,10 @@ it('switches to the Prism translator and persists an accepted translation when A
 
     new TranslationManagerServiceProvider(app())->registeringPackage();
 
+    $translator = resolve(TranslationAITranslator::class);
+
     expect(CapellCore::isPackageAvailable(AIOrchestratorServiceProvider::$packageName))->toBeTrue()
-        ->and(resolve(TranslationAITranslator::class))->toBeInstanceOf(PrismTranslationAITranslator::class);
+        ->and($translator::class)->toBe(PrismTranslationAITranslator::class);
 
     $page = resolve(TranslationManagerPage::class);
     $page->mount();
@@ -468,9 +470,9 @@ describe('Livewire translation journey', function (): void {
             ->call('continueTranslating')
             ->assertSet('focusedEntryKey', 'title')
             ->assertSeeHtml('data-focused-entry="title"')
-            ->assertDispatched('translation-manager-focus-entry', id: 'translation-entry-' . md5('title'))
+            ->assertDispatched('translation-manager-focus-entry', id: 'translation-entry-' . hash('xxh128', 'title'))
             ->call('continueTranslating')
-            ->assertDispatched('translation-manager-focus-entry', id: 'translation-entry-' . md5('title'));
+            ->assertDispatched('translation-manager-focus-entry', id: 'translation-entry-' . hash('xxh128', 'title'));
     });
 
     it('keeps the navigation guard dirty after an unsaved Livewire edit and clears it after saving', function (): void {
@@ -596,3 +598,21 @@ function translationManagerRunAction(?Action $action, array $data = []): mixed
 
     return $action->evaluate($closure, ['data' => $data], [Action::class => $action]);
 }
+
+it('loads populated screenshot comparison rows from the real file store', function (): void {
+    config()->set('capell-translation-manager.app_source.path', dirname(__DIR__, 5) . '/workbench/resources/screenshots/translations');
+    config()->set('capell-translation-manager.app_source.writable', false);
+    session()->put('capell.translation-manager.selection', [
+        'sourceKey' => 'app', 'sourceLocale' => 'en', 'targetLocale' => 'fr', 'fileKey' => 'json', 'filter' => 'all',
+    ]);
+    $page = resolve(TranslationManagerPage::class);
+    $page->mount();
+
+    expect($page->entries)->toHaveCount(4);
+    $translated = collect($page->entries)->firstWhere('key', 'Book a workshop');
+    $missing = collect($page->entries)->firstWhere('key', 'Plan your visit');
+    $this->assertNotNull($translated);
+    $this->assertNotNull($missing);
+    expect($translated['targetValue'])->toBe('Réserver un atelier')
+        ->and($missing['status'])->toBe('missing');
+});

@@ -387,7 +387,7 @@ final class TranslationManagerPage extends Page
         $this->filter = 'needs_attention';
         $this->focusedEntryKey = $nextWork->key;
         $this->commitSelection();
-        $this->dispatch('translation-manager-focus-entry', id: 'translation-entry-' . md5($nextWork->key));
+        $this->dispatch('translation-manager-focus-entry', id: 'translation-entry-' . hash('xxh128', $nextWork->key));
     }
 
     /**

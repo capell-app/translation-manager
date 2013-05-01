@@ -21,17 +21,23 @@
         },
         {
             "id": "translation-manager-comparison-grid",
-            "title": "Illustrative translation comparison grid with source strings, editable target strings, statuses, and entry selection preview.",
+            "title": "Translation comparison in the installed Translation Manager",
             "package": "translation-manager",
-            "surface": "frontend",
-            "targetType": "frontend-url",
-            "target": "/screenshot-fixtures/marketplace-translation-manager/translation-manager-comparison-grid",
-            "url": "/screenshot-fixtures/marketplace-translation-manager/translation-manager-comparison-grid",
+            "surface": "admin",
+            "targetType": "admin-route",
+            "target": "/screenshot-fixtures/translation-manager/comparison",
+            "url": "/screenshot-fixtures/translation-manager/comparison",
             "required": true,
-            "notes": "Illustrative deterministic fixture, not a live Filament resource capture. Seed the application source with an en file and a partial fr file so the grid shows missing and changed entries without relying on another package.",
+            "notes": "Capture the real authenticated package page with the prepared fixture selected. Reject empty rows, generic fixture cards and unstyled output. Existing image remains pending authentic recapture.",
             "useCase": "A translator reviews source strings beside editable target strings, status, and selection controls.",
             "screenshotPath": "packages/translation-manager/docs/screenshots/translation-manager-comparison-grid.png",
-            "fixtureKind": "illustrative-workflow"
+            "user": "admin",
+            "waitFor": "tr[wire\\:key^=\"translation-entry-\"]",
+            "viewport": "desktop",
+            "requiredViewport": {
+                "width": 1440,
+                "height": 900
+            }
         },
         {
             "id": "translation-manager-create-locale-modal",
