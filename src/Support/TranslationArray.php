@@ -15,7 +15,7 @@ final class TranslationArray
         $entries = [];
 
         foreach ($values as $key => $value) {
-            $entryKey = $prefix === '' ? (string) $key : $prefix . '.' . $key;
+            $entryKey = $prefix === '' ? $key : $prefix . '.' . $key;
 
             if (is_array($value)) {
                 $entries += self::flattenForEditor($value, $entryKey);
@@ -42,7 +42,7 @@ final class TranslationArray
         $entries = [];
 
         foreach ($values as $key => $value) {
-            $entryKey = $prefix === '' ? (string) $key : $prefix . '.' . $key;
+            $entryKey = $prefix === '' ? $key : $prefix . '.' . $key;
 
             if (is_array($value)) {
                 $entries += self::flattenStrings($value, $entryKey);
@@ -67,7 +67,7 @@ final class TranslationArray
         $result = [];
 
         foreach ($values as $key => $value) {
-            self::setNestedValue($result, $key, $value ?? '');
+            $result = self::setNestedValue($result, $key, $value ?? '');
         }
 
         return $result;

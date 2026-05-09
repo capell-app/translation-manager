@@ -7,6 +7,7 @@ namespace Capell\TranslationManager\Support;
 use Capell\TranslationManager\Contracts\TranslationSourceResolver;
 use Capell\TranslationManager\Data\TranslationSourceData;
 use InvalidArgumentException;
+use ReflectionClass;
 
 final class ConfigTranslationSourceResolver implements TranslationSourceResolver
 {
@@ -40,15 +41,18 @@ final class ConfigTranslationSourceResolver implements TranslationSourceResolver
         $config = config('capell-translation-manager.app_source', []);
         $path = $config['path'] ?? null;
         $sourcePath = is_string($path) && $path !== '' ? $path : lang_path();
+        $key = $config['key'] ?? 'app';
+        $label = $config['label'] ?? 'Application';
+        $writable = $config['writable'] ?? true;
 
         return new TranslationSourceData(
-            key: (string) ($config['key'] ?? 'app'),
-            label: (string) ($config['label'] ?? 'Application'),
+            key: is_string($key) ? $key : 'app',
+            label: is_string($label) ? $label : 'Application',
             sourcePath: $sourcePath,
             overridePath: $sourcePath,
             namespace: null,
             type: 'app',
-            sourceWritable: (bool) ($config['writable'] ?? true),
+            sourceWritable: is_bool($writable) ? $writable : true,
         );
     }
 
@@ -69,7 +73,9 @@ final class ConfigTranslationSourceResolver implements TranslationSourceResolver
                 continue;
             }
 
-            foreach (glob($packagePath, GLOB_ONLYDIR) ?: [] as $languagePath) {
+            $languagePaths = glob($packagePath, GLOB_ONLYDIR);
+
+            foreach (is_array($languagePaths) ? $languagePaths : [] as $languagePath) {
                 $source = $this->packageSourceFromPath($languagePath);
 
                 if ($source instanceof TranslationSourceData) {
@@ -97,7 +103,7 @@ final class ConfigTranslationSourceResolver implements TranslationSourceResolver
         }
 
         $packageName = $composer['name'];
-        $namespace = str_replace('/', '-', $packageName);
+        $namespace = $this->packageTranslationNamespace($composer, $packageName);
         $label = str($packageName)->after('/')->headline()->toString();
 
         return new TranslationSourceData(
@@ -107,8 +113,39 @@ final class ConfigTranslationSourceResolver implements TranslationSourceResolver
             overridePath: lang_path('vendor/' . $namespace),
             namespace: $namespace,
             type: 'package',
-            sourceWritable: (bool) config('capell-translation-manager.package_source_writes', false),
+            sourceWritable: config('capell-translation-manager.package_source_writes', false) === true,
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $composer
+     */
+    private function packageTranslationNamespace(array $composer, string $packageName): string
+    {
+        $providers = $composer['extra']['laravel']['providers'] ?? [];
+        $provider = is_array($providers) ? collect($providers)->first(fn (mixed $candidate): bool => is_string($candidate)) : null;
+
+        if (! is_string($provider) || ! class_exists($provider)) {
+            return str_replace('/', '-', $packageName);
+        }
+
+        $reflection = new ReflectionClass($provider);
+
+        if (! $reflection->hasProperty('name')) {
+            return str_replace('/', '-', $packageName);
+        }
+
+        $property = $reflection->getProperty('name');
+
+        if (! $property->isStatic() || ! $property->isPublic()) {
+            return str_replace('/', '-', $packageName);
+        }
+
+        $value = $property->getValue();
+
+        return is_string($value) && $value !== ''
+            ? $value
+            : str_replace('/', '-', $packageName);
     }
 
     /**

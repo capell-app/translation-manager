@@ -11,6 +11,7 @@ use Capell\TranslationManager\Data\TranslationFileData;
 use Capell\TranslationManager\Data\TranslationSourceData;
 use Capell\TranslationManager\Data\TranslationWriteData;
 use Illuminate\Filesystem\Filesystem;
+use InvalidArgumentException;
 
 final class FileTranslationFileStore implements TranslationFileStore
 {
@@ -30,6 +31,11 @@ final class FileTranslationFileStore implements TranslationFileStore
 
             foreach ($this->filesystem->directories($path) as $localePath) {
                 $locale = basename($localePath);
+
+                if (! $this->localeValidator->isValid($locale)) {
+                    continue;
+                }
+
                 $locales[$locale] ??= [
                     'locale' => $locale,
                     'source' => false,
@@ -45,8 +51,15 @@ final class FileTranslationFileStore implements TranslationFileStore
                 }
             }
 
-            foreach (glob($path . '/*.json') ?: [] as $jsonPath) {
+            $jsonPaths = glob($path . '/*.json');
+
+            foreach (is_array($jsonPaths) ? $jsonPaths : [] as $jsonPath) {
                 $locale = basename($jsonPath, '.json');
+
+                if (! $this->localeValidator->isValid($locale)) {
+                    continue;
+                }
+
                 $locales[$locale] ??= [
                     'locale' => $locale,
                     'source' => false,
@@ -65,10 +78,10 @@ final class FileTranslationFileStore implements TranslationFileStore
 
         return collect($locales)
             ->map(fn (array $locale): LocaleSummaryData => new LocaleSummaryData(
-                locale: (string) $locale['locale'],
-                fileCount: count($this->files($source, (string) $locale['locale'], (string) $locale['locale'])),
-                sourceAvailable: (bool) $locale['source'],
-                overrideAvailable: (bool) $locale['override'],
+                locale: $locale['locale'],
+                fileCount: count($this->files($source, $locale['locale'], $locale['locale'])),
+                sourceAvailable: $locale['source'],
+                overrideAvailable: $locale['override'],
             ))
             ->sortBy(fn (LocaleSummaryData $locale): string => $locale->locale)
             ->values()
@@ -77,6 +90,9 @@ final class FileTranslationFileStore implements TranslationFileStore
 
     public function files(TranslationSourceData $source, string $sourceLocale, string $targetLocale): array
     {
+        $this->localeValidator->assertValid($sourceLocale);
+        $this->localeValidator->assertValid($targetLocale);
+
         $files = [];
 
         foreach ([$sourceLocale, $targetLocale] as $locale) {
@@ -123,6 +139,9 @@ final class FileTranslationFileStore implements TranslationFileStore
 
     public function comparison(TranslationSourceData $source, string $fileKey, string $sourceLocale, string $targetLocale): array
     {
+        $this->localeValidator->assertValid($sourceLocale);
+        $this->localeValidator->assertValid($targetLocale);
+
         $sourceEntries = TranslationArray::flattenForEditor($this->read($source, $fileKey, $sourceLocale, false));
         $targetEntries = TranslationArray::flattenForEditor($this->read($source, $fileKey, $targetLocale, false));
         $keys = collect([...array_keys($sourceEntries), ...array_keys($targetEntries)])->unique()->sort()->values();
@@ -130,18 +149,22 @@ final class FileTranslationFileStore implements TranslationFileStore
         return $keys
             ->map(function (string $key) use ($sourceEntries, $targetEntries): TranslationEntryData {
                 $sourceEntry = $sourceEntries[$key] ?? ['value' => null, 'editable' => false, 'exists' => false];
-                $targetEntry = $targetEntries[$key] ?? ['value' => null, 'editable' => true, 'exists' => false];
+                $targetEntry = $targetEntries[$key] ?? [
+                    'value' => null,
+                    'editable' => $sourceEntry['editable'],
+                    'exists' => false,
+                ];
                 $sourceValue = $sourceEntry['value'];
                 $targetValue = $targetEntry['value'];
-                $sourceExists = (bool) $sourceEntry['exists'];
-                $targetExists = (bool) $targetEntry['exists'];
+                $sourceExists = $sourceEntry['exists'];
+                $targetExists = $targetEntry['exists'];
 
                 return new TranslationEntryData(
                     key: $key,
                     sourceValue: is_string($sourceValue) ? $sourceValue : null,
                     targetValue: is_string($targetValue) ? $targetValue : null,
                     status: $this->status($sourceExists, $targetExists, is_string($sourceValue) ? $sourceValue : null, is_string($targetValue) ? $targetValue : null),
-                    editable: (bool) $sourceEntry['editable'] || (bool) $targetEntry['editable'],
+                    editable: $sourceEntry['editable'] || $targetEntry['editable'],
                 );
             })
             ->all();
@@ -188,6 +211,12 @@ final class FileTranslationFileStore implements TranslationFileStore
         $currentValues = $this->read($write->source, $write->fileKey, $write->locale, true);
 
         foreach ($write->values as $key => $value) {
+            if ($write->fileKey === 'json') {
+                $currentValues[$key] = $value ?? '';
+
+                continue;
+            }
+
             $currentValues = TranslationArray::setNestedValue($currentValues, $key, $value ?? '');
         }
 
@@ -206,7 +235,7 @@ final class FileTranslationFileStore implements TranslationFileStore
                 return [];
             }
 
-            $decoded = json_decode((string) $this->filesystem->get($path), true);
+            $decoded = json_decode($this->filesystem->get($path), true);
 
             return is_array($decoded) ? $decoded : [];
         }
@@ -240,11 +269,13 @@ final class FileTranslationFileStore implements TranslationFileStore
 
     private function path(TranslationSourceData $source, string $fileKey, string $locale, bool $forWrite): string
     {
+        $this->localeValidator->assertValid($locale);
+
         if ($fileKey === 'json') {
             return $this->basePath($source, $fileKey, $locale, $forWrite) . '/' . $locale . '.json';
         }
 
-        $name = str($fileKey)->after('php:')->toString();
+        $name = $this->phpFileName($fileKey);
 
         return $this->basePath($source, $fileKey, $locale, $forWrite) . '/' . $locale . '/' . $name . '.php';
     }
@@ -276,7 +307,28 @@ final class FileTranslationFileStore implements TranslationFileStore
             return $basePath . '/' . $locale . '.json';
         }
 
-        return $basePath . '/' . $locale . '/' . str($fileKey)->after('php:')->toString() . '.php';
+        return $basePath . '/' . $locale . '/' . $this->phpFileName($fileKey) . '.php';
+    }
+
+    private function phpFileName(string $fileKey): string
+    {
+        if (! str_starts_with($fileKey, 'php:')) {
+            throw new InvalidArgumentException(sprintf('Translation file key [%s] is not allowed.', $fileKey));
+        }
+
+        $name = substr($fileKey, 4);
+
+        if ($name === '' || str_starts_with($name, '/') || str_contains($name, '\\') || str_contains($name, "\0")) {
+            throw new InvalidArgumentException(sprintf('Translation file key [%s] is not allowed.', $fileKey));
+        }
+
+        foreach (explode('/', $name) as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                throw new InvalidArgumentException(sprintf('Translation file key [%s] is not allowed.', $fileKey));
+            }
+        }
+
+        return $name;
     }
 
     private function status(bool $sourceExists, bool $targetExists, ?string $sourceValue, ?string $targetValue): string
@@ -301,11 +353,34 @@ final class FileTranslationFileStore implements TranslationFileStore
      */
     private function exportPhpArray(array $values): string
     {
-        $export = var_export($values, true);
-        $export = str_replace('array (', '[', $export);
-        $export = str_replace(')', ']', $export);
-        $export = preg_replace('/^([ ]*)/m', '$1', $export) ?? $export;
+        return "<?php\n\ndeclare(strict_types=1);\n\nreturn " . $this->exportValue($values) . ";\n";
+    }
 
-        return "<?php\n\ndeclare(strict_types=1);\n\nreturn " . $export . ";\n";
+    private function exportValue(mixed $value, int $depth = 0): string
+    {
+        if (! is_array($value)) {
+            return var_export($value, true);
+        }
+
+        if ($value === []) {
+            return '[]';
+        }
+
+        $indent = str_repeat('    ', $depth);
+        $childIndent = str_repeat('    ', $depth + 1);
+        $lines = ['['];
+
+        foreach ($value as $key => $childValue) {
+            $lines[] = sprintf(
+                '%s%s => %s,',
+                $childIndent,
+                var_export($key, true),
+                $this->exportValue($childValue, $depth + 1),
+            );
+        }
+
+        $lines[] = $indent . ']';
+
+        return implode(PHP_EOL, $lines);
     }
 }
