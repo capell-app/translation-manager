@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
 use Capell\TranslationManager\Filament\Pages\TranslationManagerPage;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as AuthenticatableUser;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -57,13 +58,15 @@ it('registers the translation manager as an extension page', function (): void {
 it('renders translation entries for admins who can manage extensions', function (): void {
     $this->actingAs(new class extends AuthenticatableUser
     {
+        use HasFactory;
+
         public function can($abilities, $arguments = []): bool
         {
             return true;
         }
     });
 
-    $page = app(TranslationManagerPage::class);
+    $page = resolve(TranslationManagerPage::class);
     $page->mount();
 
     expect(TranslationManagerPage::canAccess())->toBeTrue()

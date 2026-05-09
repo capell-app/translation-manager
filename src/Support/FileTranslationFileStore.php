@@ -30,7 +30,7 @@ final class FileTranslationFileStore implements TranslationFileStore
             }
 
             foreach ($this->filesystem->directories($path) as $localePath) {
-                $locale = basename($localePath);
+                $locale = basename((string) $localePath);
 
                 if (! $this->localeValidator->isValid($locale)) {
                     continue;
@@ -42,11 +42,11 @@ final class FileTranslationFileStore implements TranslationFileStore
                     'override' => false,
                 ];
 
-                if (str_starts_with($localePath, $source->sourcePath)) {
+                if (str_starts_with((string) $localePath, $source->sourcePath)) {
                     $locales[$locale]['source'] = true;
                 }
 
-                if (str_starts_with($localePath, $source->overridePath)) {
+                if (str_starts_with((string) $localePath, $source->overridePath)) {
                     $locales[$locale]['override'] = true;
                 }
             }
@@ -323,7 +323,7 @@ final class FileTranslationFileStore implements TranslationFileStore
         }
 
         foreach (explode('/', $name) as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..') {
+            if (in_array($segment, ['', '.', '..'], true)) {
                 throw new InvalidArgumentException(sprintf('Translation file key [%s] is not allowed.', $fileKey));
             }
         }

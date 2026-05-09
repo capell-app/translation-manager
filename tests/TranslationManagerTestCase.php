@@ -16,6 +16,7 @@ use Filament\Notifications\NotificationsServiceProvider;
 use Filament\Schemas\SchemasServiceProvider;
 use Filament\Support\SupportServiceProvider;
 use Filament\Tables\TablesServiceProvider;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Foundation\Testing\Concerns\InteractsWithSession;
 use Livewire\LivewireServiceProvider;
 use Lorisleiva\Actions\ActionServiceProvider;
@@ -54,14 +55,14 @@ class TranslationManagerTestCase extends TestCase
     #[Override]
     protected function getEnvironmentSetUp(mixed $app): void
     {
-        $app['config']->set('app.key', 'base64:' . base64_encode('12345678901234567890123456789012'));
-        $app['config']->set('database.default', 'testing');
-        $app['config']->set('database.connections.testing', [
+        $app->make(Repository::class)->set('app.key', 'base64:' . base64_encode('12345678901234567890123456789012'));
+        $app->make(Repository::class)->set('database.default', 'testing');
+        $app->make(Repository::class)->set('database.connections.testing', [
             'driver' => 'sqlite',
             'database' => ':memory:',
             'prefix' => '',
         ]);
-        $app['config']->set('filament-shield', []);
+        $app->make(Repository::class)->set('filament-shield', []);
 
         CapellCore::forcePackageInstalled(AdminServiceProvider::$packageName);
         CapellCore::forcePackageInstalled(TranslationManagerServiceProvider::$packageName);

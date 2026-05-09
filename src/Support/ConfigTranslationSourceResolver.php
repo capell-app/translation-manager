@@ -69,10 +69,12 @@ final class ConfigTranslationSourceResolver implements TranslationSourceResolver
         }
 
         foreach ($packagePaths as $packagePath) {
-            if (! is_string($packagePath) || $packagePath === '') {
+            if (! is_string($packagePath)) {
                 continue;
             }
-
+            if ($packagePath === '') {
+                continue;
+            }
             $languagePaths = glob($packagePath, GLOB_ONLYDIR);
 
             foreach (is_array($languagePaths) ? $languagePaths : [] as $languagePath) {
@@ -161,13 +163,17 @@ final class ConfigTranslationSourceResolver implements TranslationSourceResolver
         }
 
         foreach ($vendors as $namespace => $config) {
-            if (! is_string($namespace) || ! is_array($config)) {
+            if (! is_string($namespace)) {
                 continue;
             }
-
+            if (! is_array($config)) {
+                continue;
+            }
             $path = $config['path'] ?? null;
-
-            if (! is_string($path) || $path === '') {
+            if (! is_string($path)) {
+                continue;
+            }
+            if ($path === '') {
                 continue;
             }
 
