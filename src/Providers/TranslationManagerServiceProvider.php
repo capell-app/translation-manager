@@ -36,8 +36,7 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
     public function registeringPackage(): void
     {
         $this
-            ->registerBindings()
-            ->registerPackageMetadata();
+            ->registerBindings();
 
         $this->app->booted(function (): void {
             if (! $this->isPackageInstalled()) {
@@ -53,22 +52,6 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
         $this->app->singleton(TranslationSourceResolver::class, ConfigTranslationSourceResolver::class);
         $this->app->singleton(TranslationFileStore::class, FileTranslationFileStore::class);
         $this->app->singleton(TranslationAITranslator::class, NullTranslationAITranslator::class);
-
-        return $this;
-    }
-
-    private function registerPackageMetadata(): self
-    {
-        $packagePath = realpath(__DIR__ . '/../..');
-
-        CapellCore::registerPackage(
-            self::$packageName,
-            type: self::getType(),
-            serviceProviderClass: self::class,
-            path: $packagePath !== false ? $packagePath : dirname(__DIR__, 2),
-            version: $this->getVersion(),
-            description: fn (): string => __('capell-translation-manager::package.description'),
-        );
 
         return $this;
     }
