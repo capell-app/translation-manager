@@ -15,7 +15,6 @@ use Capell\TranslationManager\Integrations\AI\TranslationManagerAIOrchestratorMo
 use Capell\TranslationManager\Support\ConfigTranslationSourceResolver;
 use Capell\TranslationManager\Support\FileTranslationFileStore;
 use Capell\TranslationManager\Support\NullTranslationAITranslator;
-use Composer\InstalledVersions;
 use Spatie\LaravelPackageTools\Package;
 
 final class TranslationManagerServiceProvider extends AbstractPackageServiceProvider
@@ -80,14 +79,5 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
     private function isPackageInstalled(): bool
     {
         return CapellCore::isPackageInstalled(self::$packageName);
-    }
-
-    private function getVersion(): string
-    {
-        if (! class_exists(InstalledVersions::class)) {
-            return '0.0.0';
-        }
-
-        return CapellCore::getInstalledPrettyVersion(self::$packageName) ?? '0.0.0';
     }
 }
