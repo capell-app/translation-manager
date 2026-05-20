@@ -1,0 +1,69 @@
+{
+    "package": "translation-manager",
+    "composerName": "capell-app/translation-manager",
+    "generatedFor": "deployment-screenshot-runner",
+    "requiresInstalledPackage": true,
+    "outputDirectory": "public/docs/screenshots/packages/translation-manager",
+    "entries": [
+        {
+            "id": "translation-manager-page-empty-state",
+            "title": "Translation Manager page with source, locale, file, and filter selectors in the no-results state.",
+            "package": "translation-manager",
+            "surface": "admin",
+            "targetType": "admin-route",
+            "target": "/admin/translation-manager",
+            "required": true,
+            "notes": "Capture after installing only the core Capell stack and capell-app/translation-manager, with package_paths restricted to [] in the disposable harness so unrelated local package repositories do not appear as sources.",
+            "useCase": "An administrator filters the current translation file to a state with no matching rows and still sees the source, locale, file, and filter controls.",
+            "screenshotPath": "public/docs/screenshots/packages/translation-manager/translation-manager-page-empty-state.png"
+        },
+        {
+            "id": "translation-manager-comparison-grid",
+            "title": "Translation comparison grid with source strings, editable target strings, statuses, and entry selection.",
+            "package": "translation-manager",
+            "surface": "admin",
+            "targetType": "admin-route",
+            "target": "/admin/translation-manager",
+            "required": true,
+            "notes": "Seed the application source with an en file and a partial fr file so the grid shows missing and changed entries without relying on another package.",
+            "useCase": "A translator reviews source strings beside editable target strings, status, and selection controls.",
+            "screenshotPath": "public/docs/screenshots/packages/translation-manager/translation-manager-comparison-grid.png"
+        },
+        {
+            "id": "translation-manager-create-locale-modal",
+            "title": "Create locale modal.",
+            "package": "translation-manager",
+            "surface": "admin",
+            "targetType": "admin-action-modal",
+            "target": "/admin/translation-manager",
+            "required": true,
+            "notes": "Open the Create locale header action from /admin/translation-manager.",
+            "useCase": "A translator opens the Create locale action to add a new target locale.",
+            "screenshotPath": "public/docs/screenshots/packages/translation-manager/translation-manager-create-locale-modal.png"
+        },
+        {
+            "id": "translation-manager-duplicate-locale-modal",
+            "title": "Duplicate locale modal.",
+            "package": "translation-manager",
+            "surface": "admin",
+            "targetType": "admin-action-modal",
+            "target": "/admin/translation-manager",
+            "required": true,
+            "notes": "Open the Duplicate locale header action from /admin/translation-manager after en and fr locales exist.",
+            "useCase": "A translator opens the Duplicate locale action to copy strings from an existing locale.",
+            "screenshotPath": "public/docs/screenshots/packages/translation-manager/translation-manager-duplicate-locale-modal.png"
+        },
+        {
+            "id": "translation-manager-ai-translate-selected",
+            "title": "Translate selected action visible with AI translator support.",
+            "package": "translation-manager",
+            "surface": "admin",
+            "targetType": "admin-action",
+            "target": "/admin/translation-manager",
+            "required": false,
+            "notes": "Requires an available TranslationAITranslator binding, typically through the optional AI Orchestrator integration.",
+            "useCase": "A translator runs or reviews the Translate selected action when an AI translator binding is available.",
+            "screenshotPath": "public/docs/screenshots/packages/translation-manager/translation-manager-ai-translate-selected.png"
+        }
+    ]
+}

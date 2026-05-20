@@ -29,7 +29,9 @@ File-based Laravel translation management for Capell and Filament admin panels.
 
 ## Admin Surface
 
-- Pages: `TranslationManagerPage`.
+- Pages: `TranslationManagerPage` at `/admin/translation-manager`.
+- Header actions: Create locale, Duplicate locale, Save translations.
+- Optional header action: Translate selected, only when an AI translator binding is available.
 
 ## Data And Persistence
 
@@ -45,10 +47,12 @@ File-based Laravel translation management for Capell and Filament admin panels.
 
 - Install with `composer require capell-app/translation-manager` in the host Capell application.
 - In this repository, verify package changes with `vendor/bin/pest`; do not use `php artisan`.
+- For screenshots in a local package harness, set `capell-translation-manager.package_paths` to `[]` unless the pass is intentionally documenting package translation sources. This keeps uninstalled sibling package repositories out of the source selector.
 
 ## Docs
 
 - [overview.md](docs/overview.md)
+- [screenshots.json](docs/screenshots.json)
 - [sources-stores-and-ai.md](docs/sources-stores-and-ai.md)
 
 ## Testing
