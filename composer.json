@@ -30,5 +30,23 @@
     },
     "suggest": {
         "capell-app/ai-orchestrator": "Enable optional AI translation capabilities."
+    },
+    "homepage": "https://github.com/capell-app/translation-manager",
+    "keywords": [
+        "capell",
+        "cms",
+        "laravel",
+        "translations"
+    ],
+    "authors": [
+        {
+            "name": "Capell Team",
+            "email": "team@capell.app",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "source": "https://github.com/capell-app/capell-packages",
+        "docs": "https://docs.capell.app/packages/translation-manager"
     }
 }

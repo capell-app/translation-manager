@@ -14,6 +14,8 @@ File-based Laravel translation management for Capell and Filament admin panels.
 ## What It Adds
 
 - File-based Laravel translation management for Capell and Filament admin panels.
+- Locale creation and duplication from the package admin page.
+- Optional AI translation only when a host application binds a translator implementation.
 
 ## Code Map
 
