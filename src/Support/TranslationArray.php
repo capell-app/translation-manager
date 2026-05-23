@@ -80,17 +80,36 @@ final class TranslationArray
     public static function setNestedValue(array $values, string $key, string $value): array
     {
         $segments = explode('.', $key);
-        $cursor = &$values;
 
-        foreach ($segments as $segment) {
-            if (! isset($cursor[$segment]) || ! is_array($cursor[$segment])) {
-                $cursor[$segment] = [];
-            }
+        return self::setNestedSegments($values, $segments, $value);
+    }
 
-            $cursor = &$cursor[$segment];
+    /**
+     * @param  array<string, mixed>  $values
+     * @param  list<string>  $segments
+     * @return array<string, mixed>
+     */
+    private static function setNestedSegments(array $values, array $segments, string $value): array
+    {
+        $segment = array_shift($segments);
+
+        if ($segment === null) {
+            return $values;
         }
 
-        $cursor = $value;
+        if ($segments === []) {
+            $values[$segment] = $value;
+
+            return $values;
+        }
+
+        $childValues = $values[$segment] ?? [];
+
+        if (! is_array($childValues)) {
+            $childValues = [];
+        }
+
+        $values[$segment] = self::setNestedSegments($childValues, $segments, $value);
 
         return $values;
     }

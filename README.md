@@ -11,6 +11,18 @@ File-based Laravel translation management for Capell and Filament admin panels.
 - Capell dependencies: `capell-app/admin`, `capell-app/core`
 - Third-party dependencies: `lorisleiva/laravel-actions`, `spatie/laravel-data`, `spatie/laravel-package-tools`
 
+## Why It Helps Your Capell Workflow
+
+- Provides a file-based Filament editor for Laravel language files with safe package override writes.
+- Helps owners and admins adjust labels and copy without editing vendor package files directly.
+- Gives developers a controlled translation workflow that respects package boundaries and override storage.
+
+## Best Used With
+
+- [Welcome Tour](../welcome-tour/README.md)
+- [Diagnostics](../diagnostics/README.md)
+- [Foundation Theme](../foundation-theme/README.md)
+
 ## What It Adds
 
 - File-based Laravel translation management for Capell and Filament admin panels.
@@ -53,6 +65,7 @@ File-based Laravel translation management for Capell and Filament admin panels.
 
 ## Docs
 
+- [docs index](docs/README.md)
 - [overview.md](docs/overview.md)
 - [screenshots.json](docs/screenshots.json)
 - [sources-stores-and-ai.md](docs/sources-stores-and-ai.md)
