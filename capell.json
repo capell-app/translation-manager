@@ -13,10 +13,17 @@
         "bundle": "admin"
     },
     "namespace": "Capell\\TranslationManager",
-    "surfaces": ["admin"],
+    "surfaces": [
+        "admin"
+    ],
     "dependencies": {
-        "requires": ["capell-app/admin", "capell-app/core"],
-        "optional": ["capell-app/ai-orchestrator"],
+        "requires": [
+            "capell-app/admin",
+            "capell-app/core"
+        ],
+        "optional": [
+            "capell-app/ai-orchestrator"
+        ],
         "conflicts": []
     },
     "providers": {
@@ -79,10 +86,20 @@
     },
     "marketplace": {
         "summary": "Translation Manager provides a file-based Filament editor for Laravel language files with safe package override writes.",
-        "screenshots": [],
-        "categories": ["admin"]
+        "screenshots": [
+            {
+                "path": "docs/assets/marketplace/extension-card.jpg",
+                "alt": "Translation Manager extension preview image",
+                "caption": "Translation Manager extension preview"
+            }
+        ],
+        "categories": [
+            "admin"
+        ]
     },
     "contributionTraceability": {
-        "deferredContributions": ["admin-page"]
+        "deferredContributions": [
+            "admin-page"
+        ]
     }
 }
