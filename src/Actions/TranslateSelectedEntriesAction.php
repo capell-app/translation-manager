@@ -9,6 +9,9 @@ use Capell\TranslationManager\Data\AITranslationSuggestionData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Lorisleiva\Actions\Concerns\AsObject;
 
+/**
+ * @method static array<int, AITranslationSuggestionData> run(string $sourceLocale, string $targetLocale, array<int, TranslationEntryData> $entries, array<int, string> $selectedKeys)
+ */
 final class TranslateSelectedEntriesAction
 {
     use AsObject;
