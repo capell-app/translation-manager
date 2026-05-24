@@ -9,6 +9,9 @@ use Capell\TranslationManager\Contracts\TranslationSourceResolver;
 use Capell\TranslationManager\Data\LocaleSummaryData;
 use Lorisleiva\Actions\Concerns\AsObject;
 
+/**
+ * @method static array<int, LocaleSummaryData> run(string $sourceKey)
+ */
 final class ListInstalledLocalesAction
 {
     use AsObject;

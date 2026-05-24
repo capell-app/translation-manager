@@ -8,6 +8,7 @@ use Capell\TranslationManager\Data\AITranslationSuggestionData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Filament\Pages\TranslationManagerPage;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as AuthenticatableUser;
 use Illuminate\Support\Facades\File;
@@ -61,8 +62,12 @@ it('registers the translation manager as an extension page', function (): void {
 it('renders translation entries for admins who can manage extensions', function (): void {
     $this->actingAs(new class extends AuthenticatableUser
     {
+        /** @use HasFactory<Factory<static>> */
         use HasFactory;
 
+        /**
+         * @param  iterable<int, mixed>  $abilities
+         */
         public function can($abilities, $arguments = []): bool
         {
             return true;
