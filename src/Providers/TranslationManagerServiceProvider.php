@@ -46,6 +46,11 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
         });
     }
 
+    protected function isPackageInstalled(): bool
+    {
+        return CapellCore::isPackageInstalled(self::$packageName);
+    }
+
     private function registerBindings(): self
     {
         $this->app->singleton(TranslationSourceResolver::class, ConfigTranslationSourceResolver::class);
@@ -74,10 +79,5 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
         );
 
         return $this;
-    }
-
-    private function isPackageInstalled(): bool
-    {
-        return CapellCore::isPackageInstalled(self::$packageName);
     }
 }

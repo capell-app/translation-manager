@@ -13,17 +13,10 @@
         "bundle": "admin"
     },
     "namespace": "Capell\\TranslationManager",
-    "surfaces": [
-        "admin"
-    ],
+    "surfaces": ["admin"],
     "dependencies": {
-        "requires": [
-            "capell-app/admin",
-            "capell-app/core"
-        ],
-        "optional": [
-            "capell-app/ai-orchestrator"
-        ],
+        "requires": ["capell-app/admin", "capell-app/core"],
+        "supports": ["capell-app/ai-orchestrator"],
         "conflicts": []
     },
     "providers": {
@@ -93,13 +86,9 @@
                 "caption": "Translation Manager extension preview"
             }
         ],
-        "categories": [
-            "admin"
-        ]
+        "categories": ["admin"]
     },
     "contributionTraceability": {
-        "deferredContributions": [
-            "admin-page"
-        ]
+        "deferredContributions": ["admin-page"]
     }
 }

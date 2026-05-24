@@ -62,7 +62,9 @@ it('validates locales and exposes a safe null AI translator', function (): void 
         ->and($validator->isValid('pt_BR'))->toBeTrue()
         ->and($validator->isValid('../en'))->toBeFalse()
         ->and($translator->available())->toBeFalse()
-        ->and($translator->translateSelected('en', 'fr', ['hello' => 'Hello']))->toBe([]);
+        ->and($translator->translateSelected('en', 'fr', [
+            new TranslationEntryData('messages.hello', 'Hello', null, 'missing', true),
+        ]))->toBe([]);
 
     $validator->assertValid('fr-CA');
 });
