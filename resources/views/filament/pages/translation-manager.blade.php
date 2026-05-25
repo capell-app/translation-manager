@@ -106,7 +106,7 @@
                     >
                         <thead>
                             <tr
-                                class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                                class="text-left text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
                             >
                                 <th class="w-10 py-2"></th>
                                 <th class="w-56 py-2 pr-3">
@@ -141,7 +141,7 @@
                                     </td>
                                     <td class="py-3 pr-3 align-top">
                                         <code
-                                            class="break-words text-xs text-gray-700 dark:text-gray-300"
+                                            class="text-xs break-words text-gray-700 dark:text-gray-300"
                                         >
                                             {{ $entry['key'] }}
                                         </code>
@@ -153,7 +153,7 @@
                                     </td>
                                     <td class="py-3 pr-3 align-top">
                                         <div
-                                            class="min-h-10 whitespace-pre-wrap rounded-md bg-gray-50 p-2 text-gray-700 dark:bg-white/5 dark:text-gray-300"
+                                            class="min-h-10 rounded-md bg-gray-50 p-2 whitespace-pre-wrap text-gray-700 dark:bg-white/5 dark:text-gray-300"
                                         >
                                             {{ $entry['sourceValue'] }}
                                         </div>
@@ -167,7 +167,7 @@
                                             ></textarea>
                                         @else
                                             <div
-                                                class="min-h-10 whitespace-pre-wrap rounded-md bg-gray-50 p-2 text-gray-500 dark:bg-white/5"
+                                                class="min-h-10 rounded-md bg-gray-50 p-2 whitespace-pre-wrap text-gray-500 dark:bg-white/5"
                                             >
                                                 {{ $entry['targetValue'] }}
                                             </div>

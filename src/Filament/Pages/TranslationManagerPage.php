@@ -255,7 +255,7 @@ final class TranslationManagerPage extends Page
                 'key' => $source->key,
                 'label' => $source->label,
             ],
-            app(ListTranslationSourcesAction::class)->handle(),
+            resolve(ListTranslationSourcesAction::class)->handle(),
         ));
     }
 
@@ -274,7 +274,7 @@ final class TranslationManagerPage extends Page
                 'sourceAvailable' => $locale->sourceAvailable,
                 'overrideAvailable' => $locale->overrideAvailable,
             ],
-            app(ListInstalledLocalesAction::class)->handle($this->sourceKey),
+            resolve(ListInstalledLocalesAction::class)->handle($this->sourceKey),
         ));
 
         $localeNames = array_column($this->locales, 'locale');
@@ -300,7 +300,7 @@ final class TranslationManagerPage extends Page
                 'type' => $file->type,
                 'relativePath' => $file->relativePath,
             ],
-            app(ListTranslationFilesAction::class)->handle($this->sourceKey, $this->sourceLocale, $this->targetLocale),
+            resolve(ListTranslationFilesAction::class)->handle($this->sourceKey, $this->sourceLocale, $this->targetLocale),
         ));
 
         $fileKeys = array_column($this->files, 'key');
@@ -328,7 +328,7 @@ final class TranslationManagerPage extends Page
                 'status' => $entry->status,
                 'editable' => $entry->editable,
             ],
-            app(LoadTranslationComparisonAction::class)->handle($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale),
+            resolve(LoadTranslationComparisonAction::class)->handle($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale),
         ));
     }
 
@@ -349,7 +349,7 @@ final class TranslationManagerPage extends Page
             $this->entries,
         ));
 
-        $suggestions = app(TranslateSelectedEntriesAction::class)->handle($this->sourceLocale, $this->targetLocale, $entryData, $this->selectedEntryKeys);
+        $suggestions = resolve(TranslateSelectedEntriesAction::class)->handle($this->sourceLocale, $this->targetLocale, $entryData, $this->selectedEntryKeys);
         $suggestionsByKey = [];
 
         foreach ($suggestions as $suggestion) {

@@ -15,6 +15,7 @@ use Capell\TranslationManager\Integrations\AI\TranslationManagerAIOrchestratorMo
 use Capell\TranslationManager\Support\ConfigTranslationSourceResolver;
 use Capell\TranslationManager\Support\FileTranslationFileStore;
 use Capell\TranslationManager\Support\NullTranslationAITranslator;
+use Override;
 use Spatie\LaravelPackageTools\Package;
 
 final class TranslationManagerServiceProvider extends AbstractPackageServiceProvider
@@ -46,6 +47,7 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
         });
     }
 
+    #[Override]
     protected function isPackageInstalled(): bool
     {
         return CapellCore::isPackageInstalled(self::$packageName);
