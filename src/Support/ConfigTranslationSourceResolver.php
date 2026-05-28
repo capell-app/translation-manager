@@ -6,6 +6,7 @@ namespace Capell\TranslationManager\Support;
 
 use Capell\TranslationManager\Contracts\TranslationSourceResolver;
 use Capell\TranslationManager\Data\TranslationSourceData;
+use Composer\InstalledVersions;
 use InvalidArgumentException;
 use ReflectionClass;
 
@@ -61,7 +62,7 @@ final class ConfigTranslationSourceResolver implements TranslationSourceResolver
      */
     private function packageSources(): array
     {
-        $sources = [];
+        $sources = $this->composerPackageSources();
         $packagePaths = config('capell-translation-manager.package_paths', []);
 
         if (! is_array($packagePaths)) {
@@ -85,6 +86,30 @@ final class ConfigTranslationSourceResolver implements TranslationSourceResolver
                 if ($source instanceof TranslationSourceData) {
                     $sources[] = $source;
                 }
+            }
+        }
+
+        return $sources;
+    }
+
+    /**
+     * @return array<int, TranslationSourceData>
+     */
+    private function composerPackageSources(): array
+    {
+        $sources = [];
+
+        foreach (InstalledVersions::getInstalledPackages() as $packageName) {
+            $packagePath = InstalledVersions::getInstallPath($packageName);
+
+            if (! is_string($packagePath)) {
+                continue;
+            }
+
+            $source = $this->packageSourceFromPath($packagePath . '/resources/lang');
+
+            if ($source instanceof TranslationSourceData) {
+                $sources[] = $source;
             }
         }
 

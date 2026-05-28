@@ -76,6 +76,8 @@ it('renders translation entries for admins who can manage extensions', function 
 
     $page = resolve(TranslationManagerPage::class);
     $page->mount();
+    $page->sourceKey = 'app';
+    $page->refreshBrowser();
 
     expect(TranslationManagerPage::canAccess())->toBeTrue()
         ->and(collect($page->entries)->pluck('key')->all())->toContain('title')
@@ -107,6 +109,8 @@ it('filters saves and translates entries from the page state', function (): void
 
     $page = resolve(TranslationManagerPage::class);
     $page->mount();
+    $page->sourceKey = 'app';
+    $page->refreshBrowser();
 
     $page->filter = 'missing';
     $page->selectedEntryKeys = ['title'];

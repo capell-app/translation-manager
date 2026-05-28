@@ -35,7 +35,7 @@ The optional Translate selected action is intentionally absent unless a `Transla
 
 - Install only the core Capell stack and `capell-app/translation-manager` for screenshots.
 - Remove unrelated extensions from the harness database before capture; the verified pass left only `capell-app/translation-manager` enabled.
-- Set `capell-translation-manager.package_paths` to `[]` in the harness config when the app sits beside `capell-packages-4`. Otherwise the source selector lists every local package repository, including packages that are not installed in the demo app.
+- Leave `capell-translation-manager.package_paths` empty unless the harness needs explicit non-Composer translation sources. Composer-installed packages are discovered automatically.
 - Seed a small application translation fixture, such as `lang/en/package.php` and partial `lang/fr/package.php`, so the grid shows missing and changed rows without depending on another package.
 
 ## Verification
