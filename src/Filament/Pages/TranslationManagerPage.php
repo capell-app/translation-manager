@@ -15,7 +15,10 @@ use Capell\TranslationManager\Actions\LoadTranslationComparisonAction;
 use Capell\TranslationManager\Actions\SaveTranslationEntriesAction;
 use Capell\TranslationManager\Actions\TranslateSelectedEntriesAction;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
+use Capell\TranslationManager\Data\LocaleSummaryData;
 use Capell\TranslationManager\Data\TranslationEntryData;
+use Capell\TranslationManager\Data\TranslationFileData;
+use Capell\TranslationManager\Data\TranslationSourceData;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -66,7 +69,7 @@ final class TranslationManagerPage extends Page
     }
 
     #[Override]
-    public static function getNavigationGroup(): ?string
+    public static function getNavigationGroup(): string
     {
         return (string) __('capell-admin::navigation.group_system');
     }
@@ -247,13 +250,13 @@ final class TranslationManagerPage extends Page
 
     private function loadSources(): void
     {
-        $this->sources = collect(ListTranslationSourcesAction::run())
-            ->map(fn ($source): array => [
+        $this->sources = array_values(array_map(
+            fn (TranslationSourceData $source): array => [
                 'key' => $source->key,
                 'label' => $source->label,
-            ])
-            ->values()
-            ->all();
+            ],
+            resolve(ListTranslationSourcesAction::class)->handle(),
+        ));
     }
 
     private function refreshLocales(): void
@@ -264,20 +267,20 @@ final class TranslationManagerPage extends Page
             return;
         }
 
-        $this->locales = collect(ListInstalledLocalesAction::run($this->sourceKey))
-            ->map(fn ($locale): array => [
+        $this->locales = array_values(array_map(
+            fn (LocaleSummaryData $locale): array => [
                 'locale' => $locale->locale,
                 'fileCount' => $locale->fileCount,
                 'sourceAvailable' => $locale->sourceAvailable,
                 'overrideAvailable' => $locale->overrideAvailable,
-            ])
-            ->values()
-            ->all();
+            ],
+            resolve(ListInstalledLocalesAction::class)->handle($this->sourceKey),
+        ));
 
         $localeNames = array_column($this->locales, 'locale');
 
         if ($this->targetLocale === null || ! in_array($this->targetLocale, $localeNames, true)) {
-            $this->targetLocale = collect($localeNames)->first(fn (string $locale): bool => $locale !== $this->sourceLocale) ?? $this->sourceLocale;
+            $this->targetLocale = $this->firstDifferentLocale($localeNames) ?? $this->sourceLocale;
         }
     }
 
@@ -290,15 +293,15 @@ final class TranslationManagerPage extends Page
             return;
         }
 
-        $this->files = collect(ListTranslationFilesAction::run($this->sourceKey, $this->sourceLocale, $this->targetLocale))
-            ->map(fn ($file): array => [
+        $this->files = array_values(array_map(
+            fn (TranslationFileData $file): array => [
                 'key' => $file->key,
                 'label' => $file->label,
                 'type' => $file->type,
                 'relativePath' => $file->relativePath,
-            ])
-            ->values()
-            ->all();
+            ],
+            resolve(ListTranslationFilesAction::class)->handle($this->sourceKey, $this->sourceLocale, $this->targetLocale),
+        ));
 
         $fileKeys = array_column($this->files, 'key');
 
@@ -317,16 +320,16 @@ final class TranslationManagerPage extends Page
             return;
         }
 
-        $this->entries = collect(LoadTranslationComparisonAction::run($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale))
-            ->map(fn (TranslationEntryData $entry): array => [
+        $this->entries = array_values(array_map(
+            fn (TranslationEntryData $entry): array => [
                 'key' => $entry->key,
                 'sourceValue' => $entry->sourceValue,
                 'targetValue' => $entry->targetValue,
                 'status' => $entry->status,
                 'editable' => $entry->editable,
-            ])
-            ->values()
-            ->all();
+            ],
+            resolve(LoadTranslationComparisonAction::class)->handle($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale),
+        ));
     }
 
     private function translateSelectedEntries(): void
@@ -335,21 +338,26 @@ final class TranslationManagerPage extends Page
             return;
         }
 
-        $entryData = collect($this->entries)
-            ->map(fn (array $entry): TranslationEntryData => new TranslationEntryData(
+        $entryData = array_values(array_map(
+            fn (array $entry): TranslationEntryData => new TranslationEntryData(
                 key: $entry['key'],
                 sourceValue: is_string($entry['sourceValue']) ? $entry['sourceValue'] : null,
                 targetValue: is_string($entry['targetValue']) ? $entry['targetValue'] : null,
                 status: $entry['status'],
                 editable: $entry['editable'],
-            ))
-            ->all();
+            ),
+            $this->entries,
+        ));
 
-        $suggestions = TranslateSelectedEntriesAction::run($this->sourceLocale, $this->targetLocale, $entryData, $this->selectedEntryKeys);
-        $suggestionsByKey = collect($suggestions)->keyBy(fn ($suggestion): string => $suggestion->key);
+        $suggestions = resolve(TranslateSelectedEntriesAction::class)->handle($this->sourceLocale, $this->targetLocale, $entryData, $this->selectedEntryKeys);
+        $suggestionsByKey = [];
+
+        foreach ($suggestions as $suggestion) {
+            $suggestionsByKey[$suggestion->key] = $suggestion;
+        }
 
         foreach ($this->entries as $index => $entry) {
-            $suggestion = $suggestionsByKey->get($entry['key']);
+            $suggestion = $suggestionsByKey[$entry['key']] ?? null;
 
             if ($suggestion === null) {
                 continue;
@@ -362,5 +370,19 @@ final class TranslationManagerPage extends Page
             ->title(__('capell-translation-manager::package.translated'))
             ->success()
             ->send();
+    }
+
+    /**
+     * @param  array<int, string>  $locales
+     */
+    private function firstDifferentLocale(array $locales): ?string
+    {
+        foreach ($locales as $locale) {
+            if ($locale !== $this->sourceLocale) {
+                return $locale;
+            }
+        }
+
+        return null;
     }
 }

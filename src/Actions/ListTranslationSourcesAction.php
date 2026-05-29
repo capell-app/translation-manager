@@ -8,6 +8,9 @@ use Capell\TranslationManager\Contracts\TranslationSourceResolver;
 use Capell\TranslationManager\Data\TranslationSourceData;
 use Lorisleiva\Actions\Concerns\AsObject;
 
+/**
+ * @method static array<int, TranslationSourceData> run()
+ */
 final class ListTranslationSourcesAction
 {
     use AsObject;

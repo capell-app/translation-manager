@@ -15,9 +15,7 @@ return [
     ],
 
     'package_paths' => [
-        base_path('packages/*/resources/lang'),
-        base_path('../capell-4/packages/*/resources/lang'),
-        base_path('../capell-packages-4/packages/*/resources/lang'),
+        //
     ],
 
     'vendor_namespaces' => [

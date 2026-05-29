@@ -57,7 +57,7 @@ PHP);
         'Plain string' => 'Plain string',
         'Shared button' => 'Shared button',
         'Sentence.with.dot' => 'Sentence with dot',
-    ], JSON_PRETTY_PRINT));
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
 
     File::put($this->packagePath . '/composer.json', json_encode([
         'name' => 'capell-app/fixture-package',
@@ -68,7 +68,7 @@ PHP);
                 ],
             ],
         ],
-    ], JSON_PRETTY_PRINT));
+    ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
 
     File::put($this->packagePath . '/resources/lang/en/package.php', <<<'PHP'
 <?php
@@ -185,7 +185,7 @@ PHP);
 });
 
 it('ignores invalid locale file names discovered on disk', function (): void {
-    File::put($this->appLanguagePath . '/bad.locale.json', json_encode(['Unsafe' => 'Unsafe'], JSON_PRETTY_PRINT));
+    File::put($this->appLanguagePath . '/bad.locale.json', json_encode(['Unsafe' => 'Unsafe'], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
 
     $locales = collect(ListInstalledLocalesAction::run('app'))->pluck('locale')->all();
 

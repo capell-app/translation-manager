@@ -9,6 +9,9 @@ use Capell\TranslationManager\Contracts\TranslationSourceResolver;
 use Capell\TranslationManager\Data\TranslationFileData;
 use Lorisleiva\Actions\Concerns\AsObject;
 
+/**
+ * @method static array<int, TranslationFileData> run(string $sourceKey, string $sourceLocale, string $targetLocale)
+ */
 final class ListTranslationFilesAction
 {
     use AsObject;
