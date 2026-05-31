@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\TranslationManager\Contracts;
 
 use Capell\TranslationManager\Data\LocaleSummaryData;
+use Capell\TranslationManager\Data\TranslationCsvImportResultData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Data\TranslationFileData;
 use Capell\TranslationManager\Data\TranslationSourceData;
@@ -32,4 +33,8 @@ interface TranslationFileStore
     public function duplicateLocale(TranslationSourceData $source, string $fromLocale, string $targetLocale): void;
 
     public function write(TranslationWriteData $write): void;
+
+    public function exportCsv(TranslationSourceData $source, string $fileKey, string $sourceLocale, string $targetLocale): string;
+
+    public function importCsv(TranslationSourceData $source, string $fileKey, string $locale, string $contents): TranslationCsvImportResultData;
 }

@@ -136,10 +136,7 @@ final class TranslationManagerPage extends Page
             $this->sourceKey,
             $this->fileKey,
             $this->targetLocale,
-            collect($this->entries)
-                ->filter(fn (array $entry): bool => $entry['editable'])
-                ->mapWithKeys(fn (array $entry): array => [$entry['key'] => $entry['targetValue']])
-                ->all(),
+            $this->currentEditableTranslationValues(),
         );
 
         $this->loadEntries();
@@ -370,6 +367,36 @@ final class TranslationManagerPage extends Page
             ->title(__('capell-translation-manager::package.translated'))
             ->success()
             ->send();
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function currentEditableTranslationValues(): array
+    {
+        if ($this->sourceKey === null || $this->fileKey === null || $this->targetLocale === null) {
+            return [];
+        }
+
+        $submittedEntries = collect($this->entries)
+            ->keyBy(fn (array $entry): string => $entry['key']);
+
+        return collect(resolve(LoadTranslationComparisonAction::class)->handle(
+            $this->sourceKey,
+            $this->fileKey,
+            $this->sourceLocale,
+            $this->targetLocale,
+        ))
+            ->filter(fn (TranslationEntryData $entry): bool => $entry->editable)
+            ->mapWithKeys(function (TranslationEntryData $entry) use ($submittedEntries): array {
+                $submittedEntry = $submittedEntries->get($entry->key);
+                $submittedValue = is_array($submittedEntry) && array_key_exists('targetValue', $submittedEntry)
+                    ? $submittedEntry['targetValue']
+                    : $entry->targetValue;
+
+                return [$entry->key => is_string($submittedValue) ? $submittedValue : null];
+            })
+            ->all();
     }
 
     /**

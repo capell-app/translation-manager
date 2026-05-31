@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Capell\TranslationManager\Actions\CreateLocaleFilesAction;
 use Capell\TranslationManager\Actions\DuplicateLocaleAction;
+use Capell\TranslationManager\Actions\ExportTranslationEntriesToCsvAction;
+use Capell\TranslationManager\Actions\ImportTranslationEntriesFromCsvAction;
 use Capell\TranslationManager\Actions\ListInstalledLocalesAction;
 use Capell\TranslationManager\Actions\ListTranslationFilesAction;
 use Capell\TranslationManager\Actions\ListTranslationSourcesAction;
@@ -11,6 +13,7 @@ use Capell\TranslationManager\Actions\LoadTranslationComparisonAction;
 use Capell\TranslationManager\Actions\SaveTranslationEntriesAction;
 use Capell\TranslationManager\Tests\Fixtures\PackageTranslationFixtureServiceProvider;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
@@ -96,6 +99,8 @@ it('discovers app and package translation sources', function (): void {
 
     $packageSource = $sources->firstWhere('key', 'package:capell-app/fixture-package');
 
+    throw_if($packageSource === null, RuntimeException::class, 'Expected package translation source to exist.');
+
     expect($packageSource->namespace)->toBe('capell-fixture-package')
         ->and($packageSource->sourceWritable)->toBeFalse();
 });
@@ -104,12 +109,48 @@ it('lists locales and compares source and target entries', function (): void {
     $locales = ListInstalledLocalesAction::run('app');
     $files = ListTranslationFilesAction::run('app', 'en', 'fr');
     $entries = collect(LoadTranslationComparisonAction::run('app', 'php:messages', 'en', 'fr'));
+    $titleEntry = $entries->firstWhere('key', 'title');
+    $bodyEntry = $entries->firstWhere('key', 'nested.body');
+    $countEntry = $entries->firstWhere('key', 'nested.count');
+
+    throw_if($titleEntry === null || $bodyEntry === null || $countEntry === null, RuntimeException::class, 'Expected compared translation entries to exist.');
 
     expect(collect($locales)->pluck('locale')->all())->toContain('en', 'fr')
         ->and(collect($files)->pluck('key')->all())->toContain('php:messages', 'json')
-        ->and($entries->firstWhere('key', 'title')->status)->toBe('changed')
-        ->and($entries->firstWhere('key', 'nested.body')->status)->toBe('missing')
-        ->and($entries->firstWhere('key', 'nested.count')->editable)->toBeFalse();
+        ->and(collect($files)->firstWhere('key', 'json')?->label)->toBe(__('capell-translation-manager::package.json_translations'))
+        ->and($titleEntry->status)->toBe('changed')
+        ->and($bodyEntry->status)->toBe('missing')
+        ->and($countEntry->editable)->toBeFalse();
+});
+
+it('marks translated entries stale when the source file is newer than the target file', function (): void {
+    $sourcePath = $this->appLanguagePath . '/en/messages.php';
+    $targetPath = $this->appLanguagePath . '/fr/messages.php';
+
+    touch($targetPath, Date::now()->subMinutes(2)->getTimestamp());
+    touch($sourcePath, Date::now()->getTimestamp());
+
+    $entries = collect(LoadTranslationComparisonAction::run('app', 'php:messages', 'en', 'fr'));
+    $titleEntry = $entries->firstWhere('key', 'title');
+
+    throw_if($titleEntry === null, RuntimeException::class, 'Expected compared translation entry to exist.');
+
+    expect($titleEntry->status)->toBe('stale');
+});
+
+it('keeps changed status when the target file is newer than the source file', function (): void {
+    $sourcePath = $this->appLanguagePath . '/en/messages.php';
+    $targetPath = $this->appLanguagePath . '/fr/messages.php';
+
+    touch($sourcePath, Date::now()->subMinutes(2)->getTimestamp());
+    touch($targetPath, Date::now()->getTimestamp());
+
+    $entries = collect(LoadTranslationComparisonAction::run('app', 'php:messages', 'en', 'fr'));
+    $titleEntry = $entries->firstWhere('key', 'title');
+
+    throw_if($titleEntry === null, RuntimeException::class, 'Expected compared translation entry to exist.');
+
+    expect($titleEntry->status)->toBe('changed');
 });
 
 it('saves app language files in place while preserving unedited entries', function (): void {
@@ -152,6 +193,54 @@ it('saves JSON language keys literally even when keys contain dots', function ()
         ->and($jsonValues['Sentence.with.dot'])->toBe('Phrase avec point')
         ->and($jsonValues)->not->toHaveKey('Sentence');
 });
+
+it('exports compared translation entries as CSV', function (): void {
+    $csv = ExportTranslationEntriesToCsvAction::run('app', 'php:messages', 'en', 'fr');
+    $rows = array_map(
+        str_getcsv(...),
+        explode(PHP_EOL, trim((string) $csv)),
+    );
+
+    expect($rows[0])->toBe(['key', 'source_value', 'target_value', 'status'])
+        ->and($rows)->toContain(['nested.body', 'Welcome', '', 'missing'])
+        ->and($rows)->toContain(['title', 'Hello', 'Bonjour', 'changed']);
+});
+
+it('imports target translation values from CSV through the file store', function (): void {
+    $csv = <<<'CSV'
+key,target_value
+nested.body,Bienvenue
+title,Salut
+,"Ignored blank key"
+CSV;
+
+    $result = ImportTranslationEntriesFromCsvAction::run('app', 'php:messages', 'fr', $csv);
+    $values = require $this->appLanguagePath . '/fr/messages.php';
+
+    expect($result->importedCount)->toBe(2)
+        ->and($result->skippedCount)->toBe(1)
+        ->and($values['title'])->toBe('Salut')
+        ->and($values['nested']['body'])->toBe('Bienvenue');
+});
+
+it('imports JSON target translation values from CSV without splitting dotted keys', function (): void {
+    $csv = <<<'CSV'
+key,target_value
+Sentence.with.dot,Phrase avec point
+CSV;
+
+    ImportTranslationEntriesFromCsvAction::run('app', 'json', 'fr', $csv);
+
+    $jsonValues = json_decode(File::get($this->appLanguagePath . '/fr.json'), true);
+
+    expect($jsonValues)->toHaveKey('Sentence.with.dot')
+        ->and($jsonValues['Sentence.with.dot'])->toBe('Phrase avec point')
+        ->and($jsonValues)->not->toHaveKey('Sentence');
+});
+
+it('rejects CSV imports without required columns', function (): void {
+    ImportTranslationEntriesFromCsvAction::run('app', 'php:messages', 'fr', "key,value\nnested.body,Bienvenue\n");
+})->throws(InvalidArgumentException::class);
 
 it('rejects translation file keys that escape the locale directory', function (): void {
     SaveTranslationEntriesAction::run('app', 'php:../escape', 'fr', [

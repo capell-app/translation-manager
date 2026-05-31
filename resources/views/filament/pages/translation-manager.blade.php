@@ -83,6 +83,9 @@
                         <option value="changed">
                             {{ __('capell-translation-manager::package.filter_changed') }}
                         </option>
+                        <option value="stale">
+                            {{ __('capell-translation-manager::package.filter_stale') }}
+                        </option>
                         <option value="same">
                             {{ __('capell-translation-manager::package.filter_same') }}
                         </option>
@@ -148,7 +151,7 @@
                                         <span
                                             class="mt-1 block text-xs text-gray-500"
                                         >
-                                            {{ $entry['status'] }}
+                                            {{ __('capell-translation-manager::package.status_' . $entry['status']) }}
                                         </span>
                                     </td>
                                     <td class="py-3 pr-3 align-top">

@@ -8,6 +8,8 @@ use Capell\TranslationManager\Data\AITranslationSuggestionData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Filament\Pages\TranslationManagerPage;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
+use Filament\Actions\Action;
+use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as AuthenticatableUser;
@@ -79,9 +81,13 @@ it('renders translation entries for admins who can manage extensions', function 
     $page->sourceKey = 'app';
     $page->refreshBrowser();
 
+    $titleEntry = collect($page->entries)->firstWhere('key', 'title');
+
+    throw_if($titleEntry === null, RuntimeException::class, 'Expected title translation entry to exist.');
+
     expect(TranslationManagerPage::canAccess())->toBeTrue()
         ->and(collect($page->entries)->pluck('key')->all())->toContain('title')
-        ->and(collect($page->entries)->firstWhere('key', 'title')['sourceValue'])->toBe('Hello');
+        ->and($titleEntry['sourceValue'])->toBe('Hello');
 });
 
 it('filters saves and translates entries from the page state', function (): void {
@@ -137,3 +143,125 @@ it('filters saves and translates entries from the page state', function (): void
         ->and($page->targetLocale)->toBe('fr')
         ->and($page->entries)->not->toBeEmpty();
 });
+
+it('only saves server-authorized editable translation keys from Livewire state', function (): void {
+    $page = resolve(TranslationManagerPage::class);
+    $page->mount();
+    $page->sourceKey = 'app';
+    $page->refreshBrowser();
+
+    $page->entries = [
+        [
+            'key' => 'title',
+            'sourceValue' => 'Hello',
+            'targetValue' => 'Bonjour',
+            'status' => 'missing',
+            'editable' => false,
+        ],
+        [
+            'key' => 'admin.injected',
+            'sourceValue' => 'Injected',
+            'targetValue' => 'Injected',
+            'status' => 'missing',
+            'editable' => true,
+        ],
+    ];
+
+    $page->saveTranslations();
+
+    expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))
+        ->toBe(['title' => 'Bonjour']);
+});
+
+it('drives locale creation duplication translation and save header actions from the page', function (): void {
+    app()->instance(TranslationAITranslator::class, new class implements TranslationAITranslator
+    {
+        public function available(): bool
+        {
+            return true;
+        }
+
+        /**
+         * @param  array<int, TranslationEntryData>  $entries
+         * @return array<int, AITranslationSuggestionData>
+         */
+        public function translateSelected(string $sourceLocale, string $targetLocale, array $entries): array
+        {
+            return collect($entries)
+                ->map(static fn (TranslationEntryData $entry): AITranslationSuggestionData => new AITranslationSuggestionData(
+                    key: $entry->key,
+                    value: sprintf('header:%s:%s:%s', $sourceLocale, $targetLocale, $entry->sourceValue),
+                ))
+                ->all();
+        }
+    });
+
+    $page = resolve(TranslationManagerPage::class);
+    $page->mount();
+    $page->sourceKey = 'app';
+    $page->refreshBrowser();
+
+    $actions = collect(translationManagerHeaderActions($page))
+        ->filter(fn (mixed $action): bool => $action instanceof Action)
+        ->each(fn (Action $action): Action => $action->livewire($page))
+        ->keyBy(fn (Action $action): string => $action->getName());
+
+    expect($actions->keys()->all())->toBe([
+        'createLocale',
+        'duplicateLocale',
+        'translateSelected',
+        'saveTranslations',
+    ]);
+
+    foreach ($actions as $action) {
+        $actionSchema = $action->getSchema(Schema::make($page));
+
+        if ($actionSchema instanceof Schema) {
+            expect($actionSchema->getComponents())->toBeArray();
+        }
+    }
+
+    translationManagerRunAction($actions->get('createLocale'), ['locale' => 'es']);
+
+    expect($page->targetLocale)->toBe('es')
+        ->and(File::exists($this->appLanguagePath . '/es/messages.php'))->toBeTrue();
+
+    translationManagerRunAction($actions->get('duplicateLocale'), [
+        'from_locale' => 'en',
+        'target_locale' => 'de',
+    ]);
+
+    expect($page->targetLocale)->toBe('de')
+        ->and(File::getRequire($this->appLanguagePath . '/de/messages.php'))->toBe(['title' => 'Hello']);
+
+    $page->selectedEntryKeys = ['title'];
+    translationManagerRunAction($actions->get('translateSelected'));
+    translationManagerRunAction($actions->get('saveTranslations'));
+
+    expect($page->entries[0]['targetValue'])->toBe('header:en:de:Hello')
+        ->and(File::getRequire($this->appLanguagePath . '/de/messages.php'))->toBe(['title' => 'header:en:de:Hello']);
+});
+
+/**
+ * @return array<int, Action>
+ */
+function translationManagerHeaderActions(TranslationManagerPage $page): array
+{
+    $method = new ReflectionMethod(TranslationManagerPage::class, 'getHeaderActions');
+
+    return $method->invoke($page);
+}
+
+/**
+ * @param  array<string, mixed>  $data
+ */
+function translationManagerRunAction(?Action $action, array $data = []): void
+{
+    expect($action)->toBeInstanceOf(Action::class);
+
+    $closure = $action->getActionFunction();
+
+    expect($closure)->not->toBeNull();
+
+    $action->evaluate($closure, ['data' => $data], [Action::class => $action]);
+}
