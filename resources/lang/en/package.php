@@ -6,7 +6,7 @@ return [
     'ai_unavailable' => 'AI translation is not available.',
     'create_locale' => 'Create locale',
     'create_locale_heading' => 'Create a new locale',
-    'description' => 'Translation Manager provides a file-based Filament editor for Laravel language files with safe package override writes.',
+    'description' => 'Translation Manager provides a file-based Filament editor for Laravel language files with translation workflow actions, stale detection, CSV and XLIFF import-export, per-locale publish readiness, AI drafting, and safe package override writes.',
     'duplicate_locale' => 'Duplicate locale',
     'duplicate_locale_heading' => 'Duplicate an existing locale',
     'file' => 'File',
