@@ -46,8 +46,12 @@
     "permissions": [],
     "capabilities": [
         "translation.ai.translate-selected",
+        "translation.files.csv-import-export",
         "translation.files.browse",
         "translation.files.duplicate",
+        "translation.files.publish-readiness",
+        "translation.files.stale-detection",
+        "translation.files.xliff-import-export",
         "translation.files.write"
     ],
     "performance": {

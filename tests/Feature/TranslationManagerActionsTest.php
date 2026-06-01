@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use Capell\TranslationManager\Actions\BuildLocalePublishReadinessAction;
 use Capell\TranslationManager\Actions\CreateLocaleFilesAction;
 use Capell\TranslationManager\Actions\DuplicateLocaleAction;
 use Capell\TranslationManager\Actions\ExportTranslationEntriesToCsvAction;
+use Capell\TranslationManager\Actions\ExportTranslationEntriesToXliffAction;
 use Capell\TranslationManager\Actions\ImportTranslationEntriesFromCsvAction;
+use Capell\TranslationManager\Actions\ImportTranslationEntriesFromXliffAction;
 use Capell\TranslationManager\Actions\ListInstalledLocalesAction;
 use Capell\TranslationManager\Actions\ListTranslationFilesAction;
 use Capell\TranslationManager\Actions\ListTranslationSourcesAction;
@@ -236,6 +239,83 @@ CSV;
     expect($jsonValues)->toHaveKey('Sentence.with.dot')
         ->and($jsonValues['Sentence.with.dot'])->toBe('Phrase avec point')
         ->and($jsonValues)->not->toHaveKey('Sentence');
+});
+
+it('exports compared translation entries as XLIFF', function (): void {
+    $xliff = ExportTranslationEntriesToXliffAction::run('app', 'php:messages', 'en', 'fr');
+
+    expect($xliff)->toContain('<xliff version="1.2">')
+        ->and($xliff)->toContain('source-language="en"')
+        ->and($xliff)->toContain('target-language="fr"')
+        ->and($xliff)->toContain('<trans-unit id="nested.body" resname="nested.body">')
+        ->and($xliff)->toContain('<source>Welcome</source>')
+        ->and($xliff)->toContain('<target state="missing"></target>');
+});
+
+it('imports target translation values from XLIFF', function (): void {
+    $xliff = <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2">
+  <file source-language="en" target-language="fr" datatype="plaintext" original="app:php:messages">
+    <body>
+      <trans-unit id="nested.body" resname="nested.body">
+        <source>Welcome</source>
+        <target>Bienvenue</target>
+      </trans-unit>
+      <trans-unit id="title" resname="title">
+        <source>Hello</source>
+        <target>Salut</target>
+      </trans-unit>
+      <trans-unit id="">
+        <source>Ignored</source>
+        <target>Ignored</target>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>
+XML;
+
+    $result = ImportTranslationEntriesFromXliffAction::run('app', 'php:messages', 'fr', $xliff);
+    $values = require $this->appLanguagePath . '/fr/messages.php';
+
+    expect($result->importedCount)->toBe(2)
+        ->and($result->skippedCount)->toBe(1)
+        ->and($values['title'])->toBe('Salut')
+        ->and($values['nested']['body'])->toBe('Bienvenue');
+});
+
+it('builds locale publish readiness from missing and stale entries', function (): void {
+    $sourcePath = $this->appLanguagePath . '/en/messages.php';
+    $targetPath = $this->appLanguagePath . '/fr/messages.php';
+
+    touch($targetPath, Date::now()->subMinutes(2)->getTimestamp());
+    touch($sourcePath, Date::now()->getTimestamp());
+
+    $readiness = BuildLocalePublishReadinessAction::run('app', 'en', 'fr');
+
+    expect($readiness->ready)->toBeFalse()
+        ->and($readiness->fileCount)->toBe(2)
+        ->and($readiness->entryCount)->toBeGreaterThanOrEqual(5)
+        ->and($readiness->statusCounts['missing'])->toBeGreaterThanOrEqual(1)
+        ->and($readiness->statusCounts['stale'])->toBeGreaterThanOrEqual(1);
+
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', [
+        'title' => 'Bonjour',
+        'nested.body' => 'Bienvenue',
+    ]);
+    SaveTranslationEntriesAction::run('app', 'json', 'fr', [
+        'Plain string' => 'Texte simple',
+        'Shared button' => 'Bouton',
+        'Sentence.with.dot' => 'Phrase avec point',
+    ]);
+    touch($sourcePath, Date::now()->subMinutes(2)->getTimestamp());
+    touch($targetPath, Date::now()->getTimestamp());
+
+    $readiness = BuildLocalePublishReadinessAction::run('app', 'en', 'fr');
+
+    expect($readiness->ready)->toBeTrue()
+        ->and($readiness->statusCounts['missing'])->toBe(0)
+        ->and($readiness->statusCounts['stale'])->toBe(0);
 });
 
 it('rejects CSV imports without required columns', function (): void {

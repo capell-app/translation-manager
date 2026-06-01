@@ -24,6 +24,7 @@ The package registers `TranslationManagerServiceProvider` through Composer and d
 - Header action: Save translations
 - Optional header action: Translate selected, visible only when an AI translator binding is available
 - Translation comparison grid with source selector, locale selectors, file selector, status filter, entry checkboxes, source text, and target textareas
+- Action APIs for stale translation detection, CSV and XLIFF import/export, and per-locale publish readiness checks
 
 ## Screenshot Coverage
 
