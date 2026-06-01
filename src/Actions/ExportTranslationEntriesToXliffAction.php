@@ -20,6 +20,7 @@ final class ExportTranslationEntriesToXliffAction
 
         $xliff = $document->createElement('xliff');
         $xliff->setAttribute('version', '1.2');
+
         $document->appendChild($xliff);
 
         $file = $document->createElement('file');
@@ -27,6 +28,7 @@ final class ExportTranslationEntriesToXliffAction
         $file->setAttribute('target-language', $targetLocale);
         $file->setAttribute('datatype', 'plaintext');
         $file->setAttribute('original', $sourceKey . ':' . $fileKey);
+
         $xliff->appendChild($file);
 
         $body = $document->createElement('body');
@@ -51,11 +53,13 @@ final class ExportTranslationEntriesToXliffAction
 
         $source = $document->createElement('source');
         $source->appendChild($document->createTextNode($entry->sourceValue ?? ''));
+
         $unit->appendChild($source);
 
         $target = $document->createElement('target');
         $target->setAttribute('state', $entry->status);
         $target->appendChild($document->createTextNode($entry->targetValue ?? ''));
+
         $unit->appendChild($target);
 
         return $unit;
