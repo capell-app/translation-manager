@@ -7,6 +7,7 @@ use Capell\AIOrchestrator\Enums\AIOrchestratorApprovalLevel;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
 use Capell\TranslationManager\Data\AITranslationSuggestionData;
 use Capell\TranslationManager\Data\LocaleSummaryData;
+use Capell\TranslationManager\Data\TranslationCsvImportResultData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Data\TranslationFileData;
 use Capell\TranslationManager\Data\TranslationSourceData;
@@ -47,6 +48,7 @@ it('keeps translation manager values in explicit data boundaries', function (): 
 
     expect(new AITranslationSuggestionData('hello', 'Bonjour'))->key->toBe('hello')
         ->and(new LocaleSummaryData('en', 2, true, false))->fileCount->toBe(2)
+        ->and(new TranslationCsvImportResultData(3, 1))->skippedCount->toBe(1)
         ->and(new TranslationEntryData('hello', 'Hello', null, 'missing', true))->editable->toBeTrue()
         ->and(new TranslationFileData('messages', 'Messages', 'php', 'en/messages.php'))->type->toBe('php')
         ->and($source->isNamespaced())->toBeFalse()

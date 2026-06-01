@@ -17,7 +17,7 @@ final class TranslationManagerAIOrchestratorModule implements AIOrchestratorModu
 
     public function label(): string
     {
-        return 'Translation Manager';
+        return (string) __('capell-translation-manager::package.translation_manager');
     }
 
     public function capabilities(): array
@@ -25,8 +25,8 @@ final class TranslationManagerAIOrchestratorModule implements AIOrchestratorModu
         return [
             new AIOrchestratorCapabilityData(
                 key: 'translate-selected-keys',
-                label: 'Translate selected keys',
-                description: 'Draft target locale values for selected Laravel translation keys.',
+                label: (string) __('capell-translation-manager::package.translate_selected_keys'),
+                description: (string) __('capell-translation-manager::package.translate_selected_keys_description'),
                 actionClass: DraftSelectedTranslationsAction::class,
                 approvalLevel: AIOrchestratorApprovalLevel::Draft,
             ),

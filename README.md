@@ -1,6 +1,6 @@
 # Translation Manager
 
-File-based Laravel translation management for Capell and Filament admin panels.
+File-based Laravel translation management for Capell and Filament admin panels with stale detection, CSV and XLIFF import-export, per-locale publish readiness, AI drafting, and safe package override writes.
 
 ## At A Glance
 
@@ -25,7 +25,7 @@ File-based Laravel translation management for Capell and Filament admin panels.
 
 ## What It Adds
 
-- File-based Laravel translation management for Capell and Filament admin panels.
+- File-based Laravel translation management for Capell and Filament admin panels with stale detection, CSV and XLIFF import-export, per-locale publish readiness, AI drafting, and safe package override writes.
 - Locale creation and duplication from the package admin page.
 - Optional AI translation only when a host application binds a translator implementation.
 

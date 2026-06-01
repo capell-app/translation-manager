@@ -6,7 +6,7 @@
     "kind": "package",
     "capellApiVersion": "^4.0",
     "version": "4.x-dev",
-    "description": "Translation Manager provides a file-based Filament editor for Laravel language files with safe package override writes.",
+    "description": "Translation Manager provides a file-based Filament editor for Laravel language files with translation workflow actions, stale detection, CSV and XLIFF import-export, per-locale publish readiness, AI drafting, and safe package override writes.",
     "product": {
         "group": "Capell Admin",
         "tier": "premium",
@@ -30,7 +30,14 @@
         ],
         "frontend": []
     },
-    "contributes": [],
+    "contributes": [
+        {
+            "type": "admin-page",
+            "class": "Capell\\TranslationManager\\Manifest\\TranslationManagerPageContribution",
+            "pageClass": "Capell\\TranslationManager\\Filament\\Pages\\TranslationManagerPage",
+            "labelKey": "capell-translation-manager::package.navigation_label"
+        }
+    ],
     "database": {
         "migrations": false,
         "settings": false,
@@ -42,12 +49,31 @@
         "demo": null,
         "doctor": null
     },
+    "actions": {
+        "buildLocalePublishReadiness": "Capell\\TranslationManager\\Actions\\BuildLocalePublishReadinessAction",
+        "createLocaleFiles": "Capell\\TranslationManager\\Actions\\CreateLocaleFilesAction",
+        "duplicateLocale": "Capell\\TranslationManager\\Actions\\DuplicateLocaleAction",
+        "exportTranslationEntriesToCsv": "Capell\\TranslationManager\\Actions\\ExportTranslationEntriesToCsvAction",
+        "exportTranslationEntriesToXliff": "Capell\\TranslationManager\\Actions\\ExportTranslationEntriesToXliffAction",
+        "importTranslationEntriesFromCsv": "Capell\\TranslationManager\\Actions\\ImportTranslationEntriesFromCsvAction",
+        "importTranslationEntriesFromXliff": "Capell\\TranslationManager\\Actions\\ImportTranslationEntriesFromXliffAction",
+        "listInstalledLocales": "Capell\\TranslationManager\\Actions\\ListInstalledLocalesAction",
+        "listTranslationFiles": "Capell\\TranslationManager\\Actions\\ListTranslationFilesAction",
+        "listTranslationSources": "Capell\\TranslationManager\\Actions\\ListTranslationSourcesAction",
+        "loadTranslationComparison": "Capell\\TranslationManager\\Actions\\LoadTranslationComparisonAction",
+        "saveTranslationEntries": "Capell\\TranslationManager\\Actions\\SaveTranslationEntriesAction",
+        "translateSelectedEntries": "Capell\\TranslationManager\\Actions\\TranslateSelectedEntriesAction"
+    },
     "settings": [],
     "permissions": [],
     "capabilities": [
         "translation.ai.translate-selected",
+        "translation.files.csv-import-export",
         "translation.files.browse",
         "translation.files.duplicate",
+        "translation.files.publish-readiness",
+        "translation.files.stale-detection",
+        "translation.files.xliff-import-export",
         "translation.files.write"
     ],
     "performance": {
@@ -78,7 +104,7 @@
         "privateDocsRequested": true
     },
     "marketplace": {
-        "summary": "Translation Manager provides a file-based Filament editor for Laravel language files with safe package override writes.",
+        "summary": "Translation Manager provides a file-based Filament editor for Laravel language files with translation workflow actions, stale detection, CSV and XLIFF import-export, per-locale publish readiness, AI drafting, and safe package override writes.",
         "screenshots": [
             {
                 "path": "docs/assets/marketplace/extension-card.jpg",
@@ -89,6 +115,6 @@
         "categories": ["admin"]
     },
     "contributionTraceability": {
-        "deferredContributions": ["admin-page"]
+        "deferredContributions": []
     }
 }

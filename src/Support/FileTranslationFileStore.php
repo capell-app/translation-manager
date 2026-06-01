@@ -6,6 +6,7 @@ namespace Capell\TranslationManager\Support;
 
 use Capell\TranslationManager\Contracts\TranslationFileStore;
 use Capell\TranslationManager\Data\LocaleSummaryData;
+use Capell\TranslationManager\Data\TranslationCsvImportResultData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Data\TranslationFileData;
 use Capell\TranslationManager\Data\TranslationSourceData;
@@ -123,7 +124,7 @@ final class FileTranslationFileStore implements TranslationFileStore
                 if ($this->filesystem->exists($basePath . '/' . $locale . '.json')) {
                     $files['json'] = new TranslationFileData(
                         key: 'json',
-                        label: 'JSON translations',
+                        label: (string) __('capell-translation-manager::package.json_translations'),
                         type: 'json',
                         relativePath: $locale . '.json',
                     );
@@ -144,10 +145,12 @@ final class FileTranslationFileStore implements TranslationFileStore
 
         $sourceEntries = TranslationArray::flattenForEditor($this->read($source, $fileKey, $sourceLocale, false));
         $targetEntries = TranslationArray::flattenForEditor($this->read($source, $fileKey, $targetLocale, false));
+        $sourceModifiedAt = $this->fileModifiedAt($source, $fileKey, $sourceLocale);
+        $targetModifiedAt = $this->fileModifiedAt($source, $fileKey, $targetLocale);
         $keys = collect([...array_keys($sourceEntries), ...array_keys($targetEntries)])->unique()->sort()->values();
 
         return $keys
-            ->map(function (string $key) use ($sourceEntries, $targetEntries): TranslationEntryData {
+            ->map(function (string $key) use ($sourceEntries, $targetEntries, $sourceModifiedAt, $targetModifiedAt): TranslationEntryData {
                 $sourceEntry = $sourceEntries[$key] ?? ['value' => null, 'editable' => false, 'exists' => false];
                 $targetEntry = $targetEntries[$key] ?? [
                     'value' => null,
@@ -163,7 +166,14 @@ final class FileTranslationFileStore implements TranslationFileStore
                     key: $key,
                     sourceValue: is_string($sourceValue) ? $sourceValue : null,
                     targetValue: is_string($targetValue) ? $targetValue : null,
-                    status: $this->status($sourceExists, $targetExists, is_string($sourceValue) ? $sourceValue : null, is_string($targetValue) ? $targetValue : null),
+                    status: $this->status(
+                        sourceExists: $sourceExists,
+                        targetExists: $targetExists,
+                        sourceValue: is_string($sourceValue) ? $sourceValue : null,
+                        targetValue: is_string($targetValue) ? $targetValue : null,
+                        sourceModifiedAt: $sourceModifiedAt,
+                        targetModifiedAt: $targetModifiedAt,
+                    ),
                     editable: $sourceEntry['editable'] || $targetEntry['editable'],
                 );
             })
@@ -221,6 +231,80 @@ final class FileTranslationFileStore implements TranslationFileStore
         }
 
         $this->writeValues($write->source, $write->fileKey, $write->locale, $currentValues);
+    }
+
+    public function exportCsv(TranslationSourceData $source, string $fileKey, string $sourceLocale, string $targetLocale): string
+    {
+        $stream = fopen('php://temp', 'r+');
+
+        throw_if($stream === false, InvalidArgumentException::class, 'Unable to open temporary translation CSV stream.');
+
+        try {
+            fputcsv($stream, ['key', 'source_value', 'target_value', 'status']);
+
+            foreach ($this->comparison($source, $fileKey, $sourceLocale, $targetLocale) as $entry) {
+                fputcsv($stream, [
+                    $entry->key,
+                    $entry->sourceValue ?? '',
+                    $entry->targetValue ?? '',
+                    $entry->status,
+                ]);
+            }
+
+            rewind($stream);
+            $contents = stream_get_contents($stream);
+
+            return $contents === false ? '' : $contents;
+        } finally {
+            fclose($stream);
+        }
+    }
+
+    public function importCsv(TranslationSourceData $source, string $fileKey, string $locale, string $contents): TranslationCsvImportResultData
+    {
+        $stream = fopen('php://temp', 'r+');
+
+        throw_if($stream === false, InvalidArgumentException::class, 'Unable to open temporary translation CSV stream.');
+
+        try {
+            fwrite($stream, $contents);
+            rewind($stream);
+
+            $headers = $this->readCsvHeaders($stream);
+            $keyIndex = array_search('key', $headers, true);
+            $targetValueIndex = array_search('target_value', $headers, true);
+
+            throw_if(! is_int($keyIndex) || ! is_int($targetValueIndex), InvalidArgumentException::class, 'Translation CSV must contain key and target_value columns.');
+
+            $values = [];
+            $skippedCount = 0;
+
+            while (($row = fgetcsv($stream)) !== false) {
+                $key = $this->csvCell($row, $keyIndex);
+
+                if ($key === '') {
+                    $skippedCount++;
+
+                    continue;
+                }
+
+                $values[$key] = $this->csvCell($row, $targetValueIndex);
+            }
+
+            $this->write(new TranslationWriteData(
+                source: $source,
+                fileKey: $fileKey,
+                locale: $locale,
+                values: $values,
+            ));
+
+            return new TranslationCsvImportResultData(
+                importedCount: count($values),
+                skippedCount: $skippedCount,
+            );
+        } finally {
+            fclose($stream);
+        }
     }
 
     /**
@@ -310,6 +394,19 @@ final class FileTranslationFileStore implements TranslationFileStore
         return $basePath . '/' . $locale . '/' . $this->phpFileName($fileKey) . '.php';
     }
 
+    private function existingPath(TranslationSourceData $source, string $fileKey, string $locale): ?string
+    {
+        foreach ([$source->overridePath, $source->sourcePath] as $basePath) {
+            $path = $this->rawPath($basePath, $fileKey, $locale);
+
+            if ($this->filesystem->exists($path)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
     private function phpFileName(string $fileKey): string
     {
         if (! str_starts_with($fileKey, 'php:')) {
@@ -331,8 +428,14 @@ final class FileTranslationFileStore implements TranslationFileStore
         return $name;
     }
 
-    private function status(bool $sourceExists, bool $targetExists, ?string $sourceValue, ?string $targetValue): string
-    {
+    private function status(
+        bool $sourceExists,
+        bool $targetExists,
+        ?string $sourceValue,
+        ?string $targetValue,
+        ?int $sourceModifiedAt,
+        ?int $targetModifiedAt,
+    ): string {
         if (! $sourceExists && $targetExists) {
             return 'extra';
         }
@@ -345,7 +448,50 @@ final class FileTranslationFileStore implements TranslationFileStore
             return 'same';
         }
 
+        if ($sourceModifiedAt !== null && $targetModifiedAt !== null && $sourceModifiedAt > $targetModifiedAt) {
+            return 'stale';
+        }
+
         return 'changed';
+    }
+
+    private function fileModifiedAt(TranslationSourceData $source, string $fileKey, string $locale): ?int
+    {
+        $path = $this->existingPath($source, $fileKey, $locale);
+
+        if ($path === null) {
+            return null;
+        }
+
+        $modifiedAt = $this->filesystem->lastModified($path);
+
+        return is_int($modifiedAt) ? $modifiedAt : null;
+    }
+
+    /**
+     * @param  resource  $stream
+     * @return array<int, string>
+     */
+    private function readCsvHeaders(mixed $stream): array
+    {
+        $headers = fgetcsv($stream);
+
+        throw_if($headers === false, InvalidArgumentException::class, 'Translation CSV must contain a header row.');
+
+        return array_map(
+            static fn (mixed $header): string => ltrim(is_string($header) ? $header : '', "\u{FEFF}"),
+            $headers,
+        );
+    }
+
+    /**
+     * @param  array<int, string|null>  $row
+     */
+    private function csvCell(array $row, int $index): string
+    {
+        $value = $row[$index] ?? '';
+
+        return is_string($value) ? $value : '';
     }
 
     /**
