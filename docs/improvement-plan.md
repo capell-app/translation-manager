@@ -1,4 +1,5 @@
 # Translation Manager — Improvement & Growth Plan
+
 > Package: capell-app/translation-manager · Kind: package · Tier: premium · Product group: Capell Admin · Bundle: admin · Status: Draft
 
 ## 1. Snapshot
@@ -7,7 +8,7 @@ Translation Manager is an admin-only Filament package (single surface: `admin`) 
 
 The `supports` / soft-dependency pattern is implemented correctly and is worth highlighting. `composer.json` lists `capell-app/ai-orchestrator` under `suggest` (not `require`); `capell.json` lists it under `dependencies.supports`. `TranslationManagerServiceProvider::registerOptionalAIOrchestratorModule()` guards with `interface_exists(AIOrchestratorModule::class)` and `class_exists(AIOrchestratorModuleRegistry::class)` and only registers inside an `afterResolving(AIOrchestratorModuleRegistry::class, …)` callback, so the AIOrchestrator-typed classes in `src/Integrations/AI/` are never autoloaded when the orchestrator is absent. This is the clean inversion of a hard dependency: the package runs standalone with a Null translator and lights up AI drafting only when the orchestrator is installed and binds a real `TranslationAITranslator`.
 
-Current marketplace `summary` (verbatim): *"Translation Manager provides a file-based Filament editor for Laravel language files with translation workflow actions, stale detection, CSV and XLIFF import-export, per-locale publish readiness, AI drafting, and safe package override writes."* Screenshot count: **1** image is shipped (`docs/assets/marketplace/extension-card.jpg`), but `docs/screenshots.json` declares a **5-entry** contract (empty state, comparison grid, create-locale modal, duplicate-locale modal, AI translate-selected). Mismatch: the four required captures and the optional AI capture are specified but not present in the repo.
+Current marketplace `summary` (verbatim): _"Translation Manager provides a file-based Filament editor for Laravel language files with translation workflow actions, stale detection, CSV and XLIFF import-export, per-locale publish readiness, AI drafting, and safe package override writes."_ Screenshot count: **1** image is shipped (`docs/assets/marketplace/extension-card.jpg`), but `docs/screenshots.json` declares a **5-entry** contract (empty state, comparison grid, create-locale modal, duplicate-locale modal, AI translate-selected). Mismatch: the four required captures and the optional AI capture are specified but not present in the repo.
 
 ## 2. Improvements (existing functionality)
 
@@ -47,13 +48,13 @@ Table-stakes already shipped: source/target grid, stale detection (mtime-based),
 
 ## 4. Issues / Risks
 
-- **Override files fully shadow source files (partial-override data risk)** — `FileTranslationFileStore::basePath(forWrite:false)` returns *either* the override path *or* the source path for a given file, never a merge (`src/Support/FileTranslationFileStore.php:367-386`). `read()` therefore loads only one file. If an override `lang/vendor/<ns>/<locale>/<file>.php` exists but contains a subset of keys, the un-overridden source keys vanish from both the comparison grid and from `createLocale`/`duplicateLocale` snapshots taken from that locale. Laravel's runtime *merges* package translations with overrides, so the editor's view diverges from what the app actually renders. — `src/Support/FileTranslationFileStore.php` — correctness.
+- **Override files fully shadow source files (partial-override data risk)** — `FileTranslationFileStore::basePath(forWrite:false)` returns _either_ the override path _or_ the source path for a given file, never a merge (`src/Support/FileTranslationFileStore.php:367-386`). `read()` therefore loads only one file. If an override `lang/vendor/<ns>/<locale>/<file>.php` exists but contains a subset of keys, the un-overridden source keys vanish from both the comparison grid and from `createLocale`/`duplicateLocale` snapshots taken from that locale. Laravel's runtime _merges_ package translations with overrides, so the editor's view diverges from what the app actually renders. — `src/Support/FileTranslationFileStore.php` — correctness.
 
-- **Stale detection is file-mtime based, not key-level** — `status()` marks a target key `stale` when the source file's mtime is newer than the target file's mtime (`FileTranslationFileStore.php:451`). Editing one unrelated key in the source file marks *every* target key in that file stale, producing noisy false positives. A per-key change hash (or last-translated timestamp) would be more accurate. — `src/Support/FileTranslationFileStore.php` — tech debt / UX.
+- **Stale detection is file-mtime based, not key-level** — `status()` marks a target key `stale` when the source file's mtime is newer than the target file's mtime (`FileTranslationFileStore.php:451`). Editing one unrelated key in the source file marks _every_ target key in that file stale, producing noisy false positives. A per-key change hash (or last-translated timestamp) would be more accurate. — `src/Support/FileTranslationFileStore.php` — tech debt / UX.
 
 - **Health check asserts API version only** — `TranslationManagerHealthCheck` implements just `compatibleCapellApiVersion(): '^4.0'` (`src/Health/TranslationManagerHealthCheck.php`), yet the `capell.json` healthChecks label claims it proves "package surfaces, providers, and install health are discoverable by Diagnostics." This is the standard shape shared verbatim by sibling packages (insights, comments, etc.), so it is **not a package-specific stub**, but the manifest label overstates what the class verifies. Either tighten the label to "API-version compatibility" or add real assertions (page registered, contracts bound, override path writable). — `src/Health/TranslationManagerHealthCheck.php`, `capell.json:91-99` — manifest/label mismatch.
 
-- **No authorization on file writes beyond page access** — `canAccess()` gates on `ExtensionsPage::canManageExtensions()`, but the package declares `permissions: []` and there is no finer-grained gate for *writing* package/vendor overrides vs editing app strings. Anyone who can open the page can write to `lang/vendor/*`. `package_source_writes` defaults to `false` (good), but a per-source write permission would harden this. — `src/Filament/Pages/TranslationManagerPage.php`, `capell.json` permissions — security.
+- **No authorization on file writes beyond page access** — `canAccess()` gates on `ExtensionsPage::canManageExtensions()`, but the package declares `permissions: []` and there is no finer-grained gate for _writing_ package/vendor overrides vs editing app strings. Anyone who can open the page can write to `lang/vendor/*`. `package_source_writes` defaults to `false` (good), but a per-source write permission would harden this. — `src/Filament/Pages/TranslationManagerPage.php`, `capell.json` permissions — security.
 
 - **Performance budget unverified** — `capell.json` sets `performance.adminQueryBudget: 40`, but the page issues **zero DB queries** (it is filesystem-only). The budget is irrelevant as written; meanwhile the real cost is unbudgeted filesystem I/O: `ListInstalledLocalesAction` → `locales()` calls `files()` (full `allFiles()` scan) once per locale, and `BuildLocalePublishReadinessAction` runs a full `comparison()` (read+flatten both locales) per file. On a host app with many packages/locales this is O(sources × locales × files). Add a filesystem-scan budget or cache `InstalledVersions` source discovery. — `src/Support/FileTranslationFileStore.php:24-90`, `capell.json:79-90` — performance budget.
 
@@ -69,9 +70,9 @@ Table-stakes already shipped: source/target grid, stale detection (mtime-based),
 
 **Critique.** The current `summary` and composer `description` diverge. `capell.json` summary is a 40-word feature dump (editor, workflow actions, stale detection, CSV+XLIFF, publish readiness, AI drafting, override writes) — comprehensive but unreadable as a one-liner, and it advertises CSV/XLIFF/publish-readiness that have no UI entry point (see §2), risking a "where is it?" support load. The composer `description` ("File-based Laravel translation management for Capell and Filament admin panels.") is accurate but generic and undersells the differentiators (override safety, AI drafting, no-DB footprint).
 
-**Improved one-sentence summary:** *Edit, translate, and ship your Capell language files from one Filament screen — with side-by-side source/target comparison, stale-key detection, and AI drafting that never touches a database.*
+**Improved one-sentence summary:** _Edit, translate, and ship your Capell language files from one Filament screen — with side-by-side source/target comparison, stale-key detection, and AI drafting that never touches a database._
 
-**Improved 3–4 sentence description:** *Translation Manager gives admins a file-based editor for every Laravel language file in your Capell app and its packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys at a glance, and create or duplicate locales in one click. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Install AI Orchestrator to add one-click AI drafting for selected keys, with review before anything is saved.*
+**Improved 3–4 sentence description:** _Translation Manager gives admins a file-based editor for every Laravel language file in your Capell app and its packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys at a glance, and create or duplicate locales in one click. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Install AI Orchestrator to add one-click AI drafting for selected keys, with review before anything is saved._
 
 **Screenshot/media gaps.** Only 1 of the 5 declared captures (`docs/screenshots.json`) is shipped. Produce the four required PNGs (empty state, comparison grid, create-locale modal, duplicate-locale modal) and the optional AI capture. The comparison grid is the money shot — capture it with a partial `fr` locale so missing/changed statuses are visible. Add a short GIF of the create→translate→save loop for the listing.
 
@@ -85,21 +86,21 @@ Table-stakes already shipped: source/target grid, stale detection (mtime-based),
 
 ## 6. Prioritized Roadmap
 
-| Item | Bucket | Effort | Impact | Section ref |
-| --- | --- | --- | --- | --- |
-| Wire CSV/XLIFF import-export + publish-readiness into page header actions | Now | M | High | §2, §3 |
-| Ship the 4 required + 1 optional screenshots (fix screenshots.json mismatch) | Now | S | High | §1, §5 |
-| Fix partial-override merge so editor view matches Laravel runtime | Now | M | High | §4 |
-| Correct manifest healthChecks label / adminQueryBudget to match reality | Now | S | Med | §4 |
-| Memoize source discovery + locale/comparison filesystem scans | Now | S | Med | §4 |
-| Rewrite summary + composer description; add ai-orchestrator/seo-suite cross-sell | Now | S | Med | §5 |
-| Add placeholder/plural preservation validation on save | Next | M | High | §3 |
-| Add MT review gate (accept/reject AI drafts before write) | Next | M | High | §3 |
-| Per-locale completeness/coverage matrix view (uses existing readiness data) | Next | M | Med | §3 |
-| Key-level stale detection (replace file-mtime heuristic) | Next | M | Med | §4 |
-| Persist last source/locale/file selection per user | Next | S | Med | §2 |
-| Fallback-chain awareness ("covered by fallback" status) | Later | M | Med | §3 |
-| Missing-key detection via code scanning of `__()`/`@lang()` | Later | L | High | §3 |
-| Translation memory / glossary for consistent reuse | Later | L | Med | §3 |
-| PO/gettext import-export for Crowdin/Weblate/Poedit interop | Later | M | Med | §3 |
-| Replace raw blade grid with Filament table/repeater components | Later | L | Med | §2 |
+| Item                                                                             | Bucket | Effort | Impact | Section ref |
+| -------------------------------------------------------------------------------- | ------ | ------ | ------ | ----------- |
+| Wire CSV/XLIFF import-export + publish-readiness into page header actions        | Now    | M      | High   | §2, §3      |
+| Ship the 4 required + 1 optional screenshots (fix screenshots.json mismatch)     | Now    | S      | High   | §1, §5      |
+| Fix partial-override merge so editor view matches Laravel runtime                | Now    | M      | High   | §4          |
+| Correct manifest healthChecks label / adminQueryBudget to match reality          | Now    | S      | Med    | §4          |
+| Memoize source discovery + locale/comparison filesystem scans                    | Now    | S      | Med    | §4          |
+| Rewrite summary + composer description; add ai-orchestrator/seo-suite cross-sell | Now    | S      | Med    | §5          |
+| Add placeholder/plural preservation validation on save                           | Next   | M      | High   | §3          |
+| Add MT review gate (accept/reject AI drafts before write)                        | Next   | M      | High   | §3          |
+| Per-locale completeness/coverage matrix view (uses existing readiness data)      | Next   | M      | Med    | §3          |
+| Key-level stale detection (replace file-mtime heuristic)                         | Next   | M      | Med    | §4          |
+| Persist last source/locale/file selection per user                               | Next   | S      | Med    | §2          |
+| Fallback-chain awareness ("covered by fallback" status)                          | Later  | M      | Med    | §3          |
+| Missing-key detection via code scanning of `__()`/`@lang()`                      | Later  | L      | High   | §3          |
+| Translation memory / glossary for consistent reuse                               | Later  | L      | Med    | §3          |
+| PO/gettext import-export for Crowdin/Weblate/Poedit interop                      | Later  | M      | Med    | §3          |
+| Replace raw blade grid with Filament table/repeater components                   | Later  | L      | Med    | §2          |
