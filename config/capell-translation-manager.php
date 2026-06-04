@@ -23,4 +23,17 @@ return [
     ],
 
     'package_source_writes' => false,
+
+    'scan_paths' => [
+        app_path(),
+        resource_path('views'),
+        base_path('routes'),
+    ],
+
+    'glossary' => [
+        //
+        // 'fr' => [
+        //     'CMS' => 'CMS',
+        // ],
+    ],
 ];

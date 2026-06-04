@@ -143,24 +143,29 @@ final class FileTranslationFileStore implements TranslationFileStore
         $this->localeValidator->assertValid($sourceLocale);
         $this->localeValidator->assertValid($targetLocale);
 
+        $fallbackLocale = $this->fallbackLocale($sourceLocale, $targetLocale);
         $sourceEntries = TranslationArray::flattenForEditor($this->read($source, $fileKey, $sourceLocale, false));
         $targetEntries = TranslationArray::flattenForEditor($this->read($source, $fileKey, $targetLocale, false));
+        $fallbackEntries = $fallbackLocale === null ? [] : TranslationArray::flattenForEditor($this->read($source, $fileKey, $fallbackLocale, false));
+        $targetSourceHashes = $this->readSourceHashMetadata($source, $fileKey, $targetLocale);
         $sourceModifiedAt = $this->fileModifiedAt($source, $fileKey, $sourceLocale);
         $targetModifiedAt = $this->fileModifiedAt($source, $fileKey, $targetLocale);
         $keys = collect([...array_keys($sourceEntries), ...array_keys($targetEntries)])->unique()->sort()->values();
 
         return $keys
-            ->map(function (string $key) use ($sourceEntries, $targetEntries, $sourceModifiedAt, $targetModifiedAt): TranslationEntryData {
+            ->map(function (string $key) use ($sourceEntries, $targetEntries, $fallbackEntries, $targetSourceHashes, $sourceModifiedAt, $targetModifiedAt): TranslationEntryData {
                 $sourceEntry = $sourceEntries[$key] ?? ['value' => null, 'editable' => false, 'exists' => false];
                 $targetEntry = $targetEntries[$key] ?? [
                     'value' => null,
                     'editable' => $sourceEntry['editable'],
                     'exists' => false,
                 ];
+                $fallbackEntry = $fallbackEntries[$key] ?? ['value' => null, 'editable' => false, 'exists' => false];
                 $sourceValue = $sourceEntry['value'];
                 $targetValue = $targetEntry['value'];
                 $sourceExists = $sourceEntry['exists'];
                 $targetExists = $targetEntry['exists'];
+                $fallbackValue = $fallbackEntry['value'];
 
                 return new TranslationEntryData(
                     key: $key,
@@ -169,8 +174,12 @@ final class FileTranslationFileStore implements TranslationFileStore
                     status: $this->status(
                         sourceExists: $sourceExists,
                         targetExists: $targetExists,
+                        fallbackExists: $fallbackEntry['exists'],
+                        fallbackValue: is_string($fallbackValue) ? $fallbackValue : null,
                         sourceValue: is_string($sourceValue) ? $sourceValue : null,
                         targetValue: is_string($targetValue) ? $targetValue : null,
+                        sourceHash: is_string($sourceValue) ? $this->sourceHash($sourceValue) : null,
+                        translatedSourceHash: $targetSourceHashes[$key] ?? null,
                         sourceModifiedAt: $sourceModifiedAt,
                         targetModifiedAt: $targetModifiedAt,
                     ),
@@ -217,6 +226,7 @@ final class FileTranslationFileStore implements TranslationFileStore
     public function write(TranslationWriteData $write): void
     {
         $this->localeValidator->assertValid($write->locale);
+        $this->assertTranslationIntegrity($write);
 
         $currentValues = $this->read($write->source, $write->fileKey, $write->locale, true);
 
@@ -231,6 +241,7 @@ final class FileTranslationFileStore implements TranslationFileStore
         }
 
         $this->writeValues($write->source, $write->fileKey, $write->locale, $currentValues);
+        $this->writeSourceHashMetadata($write);
     }
 
     public function exportCsv(TranslationSourceData $source, string $fileKey, string $sourceLocale, string $targetLocale): string
@@ -307,11 +318,116 @@ final class FileTranslationFileStore implements TranslationFileStore
         }
     }
 
+    private function assertTranslationIntegrity(TranslationWriteData $write): void
+    {
+        $sourceLocale = config('capell-translation-manager.source_locale', 'en');
+
+        if (! is_string($sourceLocale) || $sourceLocale === '' || $sourceLocale === $write->locale) {
+            return;
+        }
+
+        $sourceValues = TranslationArray::flattenStrings($this->read($write->source, $write->fileKey, $sourceLocale, false));
+
+        foreach ($write->values as $key => $targetValue) {
+            if (! is_string($targetValue) || $targetValue === '') {
+                continue;
+            }
+
+            $sourceValue = $sourceValues[$key] ?? null;
+
+            if (! is_string($sourceValue) || $sourceValue === '') {
+                continue;
+            }
+
+            $this->assertPlaceholdersPreserved($key, $sourceValue, $targetValue);
+            $this->assertPluralFormsPreserved($key, $sourceValue, $targetValue);
+            $this->assertGlossaryTermsPreserved($key, $write->locale, $sourceValue, $targetValue);
+        }
+    }
+
+    private function assertPlaceholdersPreserved(string $key, string $sourceValue, string $targetValue): void
+    {
+        $missingPlaceholders = array_values(array_diff(
+            $this->placeholders($sourceValue),
+            $this->placeholders($targetValue),
+        ));
+
+        throw_if($missingPlaceholders !== [], InvalidArgumentException::class, __(
+            'capell-translation-manager::package.validation_missing_placeholders',
+            [
+                'key' => $key,
+                'placeholders' => implode(', ', $missingPlaceholders),
+            ],
+        ));
+    }
+
+    private function assertPluralFormsPreserved(string $key, string $sourceValue, string $targetValue): void
+    {
+        $sourcePluralCount = substr_count($sourceValue, '|');
+
+        if ($sourcePluralCount === 0) {
+            return;
+        }
+
+        throw_unless(substr_count($targetValue, '|') === $sourcePluralCount, InvalidArgumentException::class, __(
+            'capell-translation-manager::package.validation_plural_forms',
+            ['key' => $key],
+        ));
+    }
+
+    private function assertGlossaryTermsPreserved(string $key, string $locale, string $sourceValue, string $targetValue): void
+    {
+        foreach ($this->glossaryTerms($locale) as $sourceTerm => $targetTerm) {
+            if (! str_contains(mb_strtolower($sourceValue), mb_strtolower($sourceTerm))) {
+                continue;
+            }
+
+            throw_unless(str_contains(mb_strtolower($targetValue), mb_strtolower($targetTerm)), InvalidArgumentException::class, __(
+                'capell-translation-manager::package.validation_glossary_term',
+                [
+                    'key' => $key,
+                    'source' => $sourceTerm,
+                    'target' => $targetTerm,
+                ],
+            ));
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function glossaryTerms(string $locale): array
+    {
+        $terms = config('capell-translation-manager.glossary.' . $locale, []);
+
+        if (! is_array($terms)) {
+            return [];
+        }
+
+        return collect($terms)
+            ->filter(static fn (mixed $targetTerm, mixed $sourceTerm): bool => is_string($sourceTerm) && $sourceTerm !== '' && is_string($targetTerm) && $targetTerm !== '')
+            ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function placeholders(string $value): array
+    {
+        preg_match_all('/(?<!:):[A-Za-z_][A-Za-z0-9_]*/', $value, $matches);
+
+        return array_values(array_unique($matches[0] ?? []));
+    }
+
     /**
      * @return array<string, mixed>
      */
     private function read(TranslationSourceData $source, string $fileKey, string $locale, bool $forWrite): array
     {
+        if (! $forWrite) {
+            return $this->readMerged($source, $fileKey, $locale);
+        }
+
         $path = $this->path($source, $fileKey, $locale, $forWrite);
 
         if ($fileKey === 'json') {
@@ -326,6 +442,42 @@ final class FileTranslationFileStore implements TranslationFileStore
 
         if (! $this->filesystem->exists($path)) {
             return [];
+        }
+
+        $values = require $path;
+
+        return is_array($values) ? $values : [];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function readMerged(TranslationSourceData $source, string $fileKey, string $locale): array
+    {
+        $sourcePath = $this->rawPath($source->sourcePath, $fileKey, $locale);
+        $overridePath = $this->rawPath($source->overridePath, $fileKey, $locale);
+        $sourceValues = $this->readPath($sourcePath, $fileKey);
+
+        if ($overridePath === $sourcePath) {
+            return $sourceValues;
+        }
+
+        return array_replace_recursive($sourceValues, $this->readPath($overridePath, $fileKey));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function readPath(string $path, string $fileKey): array
+    {
+        if (! $this->filesystem->exists($path)) {
+            return [];
+        }
+
+        if ($fileKey === 'json') {
+            $decoded = json_decode($this->filesystem->get($path), true);
+
+            return is_array($decoded) ? $decoded : [];
         }
 
         $values = require $path;
@@ -351,6 +503,35 @@ final class FileTranslationFileStore implements TranslationFileStore
         $this->filesystem->put($path, $this->exportPhpArray($values));
     }
 
+    private function writeSourceHashMetadata(TranslationWriteData $write): void
+    {
+        $sourceLocale = config('capell-translation-manager.source_locale', 'en');
+
+        if (! is_string($sourceLocale) || $sourceLocale === '' || $sourceLocale === $write->locale) {
+            return;
+        }
+
+        $sourceValues = TranslationArray::flattenStrings($this->read($write->source, $write->fileKey, $sourceLocale, false));
+        $metadata = $this->readSourceHashMetadata($write->source, $write->fileKey, $write->locale);
+
+        foreach ($write->values as $key => $targetValue) {
+            $sourceValue = $sourceValues[$key] ?? null;
+
+            if (! is_string($sourceValue) || ! is_string($targetValue) || $targetValue === '') {
+                unset($metadata[$key]);
+
+                continue;
+            }
+
+            $metadata[$key] = $this->sourceHash($sourceValue);
+        }
+
+        $metadataPath = $this->metadataPath($write->source, $write->fileKey, $write->locale);
+        $this->filesystem->ensureDirectoryExists(dirname($metadataPath));
+        $encoded = json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $this->filesystem->put($metadataPath, ($encoded === false ? '{}' : $encoded) . PHP_EOL);
+    }
+
     private function path(TranslationSourceData $source, string $fileKey, string $locale, bool $forWrite): string
     {
         $this->localeValidator->assertValid($locale);
@@ -362,6 +543,11 @@ final class FileTranslationFileStore implements TranslationFileStore
         $name = $this->phpFileName($fileKey);
 
         return $this->basePath($source, $fileKey, $locale, $forWrite) . '/' . $locale . '/' . $name . '.php';
+    }
+
+    private function metadataPath(TranslationSourceData $source, string $fileKey, string $locale): string
+    {
+        return $this->path($source, $fileKey, $locale, true) . '.capell-meta.json';
     }
 
     private function basePath(TranslationSourceData $source, string $fileKey, string $locale, bool $forWrite): string
@@ -431,21 +617,33 @@ final class FileTranslationFileStore implements TranslationFileStore
     private function status(
         bool $sourceExists,
         bool $targetExists,
+        bool $fallbackExists,
         ?string $sourceValue,
         ?string $targetValue,
+        ?string $fallbackValue,
         ?int $sourceModifiedAt,
         ?int $targetModifiedAt,
+        ?string $sourceHash = null,
+        ?string $translatedSourceHash = null,
     ): string {
         if (! $sourceExists && $targetExists) {
             return 'extra';
         }
 
         if (! $targetExists || $targetValue === null || $targetValue === '') {
+            if ($fallbackExists && $fallbackValue !== null && $fallbackValue !== '') {
+                return 'fallback';
+            }
+
             return 'missing';
         }
 
         if ($sourceValue === $targetValue) {
             return 'same';
+        }
+
+        if ($sourceHash !== null && $translatedSourceHash !== null) {
+            return $sourceHash === $translatedSourceHash ? 'changed' : 'stale';
         }
 
         if ($sourceModifiedAt !== null && $targetModifiedAt !== null && $sourceModifiedAt > $targetModifiedAt) {
@@ -466,6 +664,48 @@ final class FileTranslationFileStore implements TranslationFileStore
         $modifiedAt = $this->filesystem->lastModified($path);
 
         return is_int($modifiedAt) ? $modifiedAt : null;
+    }
+
+    private function fallbackLocale(string $sourceLocale, string $targetLocale): ?string
+    {
+        $fallbackLocale = config('app.fallback_locale');
+
+        if (! is_string($fallbackLocale) || $fallbackLocale === '') {
+            return null;
+        }
+
+        if (in_array($fallbackLocale, [$sourceLocale, $targetLocale], true)) {
+            return null;
+        }
+
+        return $this->localeValidator->isValid($fallbackLocale) ? $fallbackLocale : null;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function readSourceHashMetadata(TranslationSourceData $source, string $fileKey, string $locale): array
+    {
+        $path = $this->metadataPath($source, $fileKey, $locale);
+
+        if (! $this->filesystem->exists($path)) {
+            return [];
+        }
+
+        $decoded = json_decode($this->filesystem->get($path), true);
+
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        return collect($decoded)
+            ->filter(static fn (mixed $hash, mixed $key): bool => is_string($key) && is_string($hash))
+            ->all();
+    }
+
+    private function sourceHash(string $sourceValue): string
+    {
+        return hash('sha256', $sourceValue);
     }
 
     /**

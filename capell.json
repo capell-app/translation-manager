@@ -51,17 +51,21 @@
     },
     "actions": {
         "buildLocalePublishReadiness": "Capell\\TranslationManager\\Actions\\BuildLocalePublishReadinessAction",
+        "buildTranslationMemorySuggestions": "Capell\\TranslationManager\\Actions\\BuildTranslationMemorySuggestionsAction",
         "createLocaleFiles": "Capell\\TranslationManager\\Actions\\CreateLocaleFilesAction",
         "duplicateLocale": "Capell\\TranslationManager\\Actions\\DuplicateLocaleAction",
         "exportTranslationEntriesToCsv": "Capell\\TranslationManager\\Actions\\ExportTranslationEntriesToCsvAction",
+        "exportTranslationEntriesToPo": "Capell\\TranslationManager\\Actions\\ExportTranslationEntriesToPoAction",
         "exportTranslationEntriesToXliff": "Capell\\TranslationManager\\Actions\\ExportTranslationEntriesToXliffAction",
         "importTranslationEntriesFromCsv": "Capell\\TranslationManager\\Actions\\ImportTranslationEntriesFromCsvAction",
+        "importTranslationEntriesFromPo": "Capell\\TranslationManager\\Actions\\ImportTranslationEntriesFromPoAction",
         "importTranslationEntriesFromXliff": "Capell\\TranslationManager\\Actions\\ImportTranslationEntriesFromXliffAction",
         "listInstalledLocales": "Capell\\TranslationManager\\Actions\\ListInstalledLocalesAction",
         "listTranslationFiles": "Capell\\TranslationManager\\Actions\\ListTranslationFilesAction",
         "listTranslationSources": "Capell\\TranslationManager\\Actions\\ListTranslationSourcesAction",
         "loadTranslationComparison": "Capell\\TranslationManager\\Actions\\LoadTranslationComparisonAction",
         "saveTranslationEntries": "Capell\\TranslationManager\\Actions\\SaveTranslationEntriesAction",
+        "scanMissingTranslationKeys": "Capell\\TranslationManager\\Actions\\ScanMissingTranslationKeysAction",
         "translateSelectedEntries": "Capell\\TranslationManager\\Actions\\TranslateSelectedEntriesAction"
     },
     "settings": [],
@@ -70,15 +74,27 @@
         "translation.ai.translate-selected",
         "translation.files.csv-import-export",
         "translation.files.browse",
+        "translation.files.code-missing-key-scan",
         "translation.files.duplicate",
+        "translation.files.fallback-awareness",
+        "translation.files.glossary-validation",
+        "translation.files.integrity-validation",
+        "translation.files.override-merge",
         "translation.files.publish-readiness",
+        "translation.files.readiness-dashboard",
+        "translation.files.po-import-export",
         "translation.files.stale-detection",
+        "translation.files.translation-memory",
         "translation.files.xliff-import-export",
         "translation.files.write"
     ],
     "performance": {
         "frontendRenderBudgetMs": 0,
-        "adminQueryBudget": 40,
+        "adminQueryBudget": 0,
+        "filesystemScanBudget": {
+            "sourceDiscoveryMemoized": true,
+            "pageReadinessMatrix": "locales x files"
+        },
         "cacheTags": [],
         "cacheSafety": {
             "cacheable": false,
@@ -111,6 +127,31 @@
                 "path": "docs/assets/marketplace/extension-card.jpg",
                 "alt": "Translation Manager extension preview image",
                 "caption": "Translation Manager extension preview"
+            },
+            {
+                "path": "docs/screenshots/translation-manager-page-empty-state.png",
+                "alt": "Translation Manager empty state with source and filter controls",
+                "caption": "Translation Manager empty state"
+            },
+            {
+                "path": "docs/screenshots/translation-manager-comparison-grid.png",
+                "alt": "Translation Manager comparison grid with source and target values",
+                "caption": "Translation comparison grid"
+            },
+            {
+                "path": "docs/screenshots/translation-manager-create-locale-modal.png",
+                "alt": "Translation Manager create locale workflow",
+                "caption": "Create locale workflow"
+            },
+            {
+                "path": "docs/screenshots/translation-manager-duplicate-locale-modal.png",
+                "alt": "Translation Manager duplicate locale workflow",
+                "caption": "Duplicate locale workflow"
+            },
+            {
+                "path": "docs/screenshots/translation-manager-ai-translate-selected.png",
+                "alt": "Translation Manager AI translate selected review workflow",
+                "caption": "AI translate selected review"
             }
         ],
         "categories": ["admin"]
