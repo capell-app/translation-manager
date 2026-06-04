@@ -1,6 +1,6 @@
 {
     "name": "capell-app/translation-manager",
-    "description": "File-based Laravel translation management for Capell and Filament admin panels.",
+    "description": "Edit, translate, and ship your Capell language files from one Filament screen — with side-by-side source/target comparison, stale-key detection, and AI drafting that never touches a database.",
     "type": "library",
     "license": "proprietary",
     "autoload": {

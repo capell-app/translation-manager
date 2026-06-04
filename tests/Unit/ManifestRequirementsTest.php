@@ -24,8 +24,9 @@ it('declares translation workflow capabilities actions and admin page contributi
         flags: JSON_THROW_ON_ERROR,
     );
 
-    expect($manifest['description'])->toContain('stale detection')
-        ->and($manifest['marketplace']['summary'])->toContain('per-locale publish readiness')
+    expect($manifest['description'])->toContain('file-based editor for every Laravel language file')
+        ->and($manifest['marketplace']['summary'])->toBe('Edit, translate, and ship your Capell language files from one Filament screen — with side-by-side source/target comparison, stale-key detection, and AI drafting that never touches a database.')
+        ->and($manifest['marketplace']['description'])->toContain('Install AI Orchestrator to add one-click AI drafting')
         ->and($manifest['providers']['runtime'])->toContain(TranslationManagerServiceProvider::class)
         ->and($manifest['providers']['admin'])->toContain(AdminServiceProvider::class)
         ->and($manifest['contributes'])->toContain([

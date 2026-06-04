@@ -6,7 +6,7 @@
     "kind": "package",
     "capellApiVersion": "^4.0",
     "version": "4.x-dev",
-    "description": "Translation Manager provides a file-based Filament editor for Laravel language files with translation workflow actions, stale detection, CSV and XLIFF import-export, per-locale publish readiness, AI drafting, and safe package override writes.",
+    "description": "Translation Manager gives admins a file-based editor for every Laravel language file in your Capell app and its packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys at a glance, and create or duplicate locales in one click. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Install AI Orchestrator to add one-click AI drafting for selected keys, with review before anything is saved.",
     "product": {
         "group": "Capell Admin",
         "tier": "premium",
@@ -104,7 +104,8 @@
         "privateDocsRequested": true
     },
     "marketplace": {
-        "summary": "Translation Manager provides a file-based Filament editor for Laravel language files with translation workflow actions, stale detection, CSV and XLIFF import-export, per-locale publish readiness, AI drafting, and safe package override writes.",
+        "summary": "Edit, translate, and ship your Capell language files from one Filament screen — with side-by-side source/target comparison, stale-key detection, and AI drafting that never touches a database.",
+        "description": "Translation Manager gives admins a file-based editor for every Laravel language file in your Capell app and its packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys at a glance, and create or duplicate locales in one click. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Install AI Orchestrator to add one-click AI drafting for selected keys, with review before anything is saved.",
         "screenshots": [
             {
                 "path": "docs/assets/marketplace/extension-card.jpg",
