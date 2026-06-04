@@ -32,9 +32,10 @@ final class TranslateSelectedEntriesAction
         $memorySuggestions = $sourceKey === null
             ? []
             : BuildTranslationMemorySuggestionsAction::run($sourceKey, $sourceLocale, $targetLocale, $selected);
-        $memoryKeys = collect($memorySuggestions)
-            ->map(static fn (AITranslationSuggestionData $suggestion): string => $suggestion->key)
-            ->all();
+        $memoryKeys = array_map(
+            static fn (AITranslationSuggestionData $suggestion): string => $suggestion->key,
+            $memorySuggestions,
+        );
 
         $translator = resolve(TranslationAITranslator::class);
 

@@ -69,7 +69,7 @@ it('declares translation workflow capabilities actions and admin page contributi
             'translation.files.write',
         )
         ->and($manifest['marketplace']['screenshots'])->toHaveCount(6)
-        ->and(collect($manifest['marketplace']['screenshots'])->pluck('path')->all())->toContain(
+        ->and(array_column($manifest['marketplace']['screenshots'], 'path'))->toContain(
             'docs/screenshots/translation-manager-page-empty-state.png',
             'docs/screenshots/translation-manager-comparison-grid.png',
             'docs/screenshots/translation-manager-create-locale-modal.png',

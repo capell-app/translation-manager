@@ -44,13 +44,23 @@ final class BuildTranslationMemorySuggestionsAction
             }
 
             foreach (LoadTranslationComparisonAction::run($sourceKey, $file->key, $sourceLocale, $targetLocale) as $entry) {
-                if (
-                    ! $entry instanceof TranslationEntryData
-                    || $entry->sourceValue === null
-                    || $entry->targetValue === null
-                    || $entry->targetValue === ''
-                    || $entry->targetValue === $entry->sourceValue
-                ) {
+                if (! $entry instanceof TranslationEntryData) {
+                    continue;
+                }
+
+                if ($entry->sourceValue === null) {
+                    continue;
+                }
+
+                if ($entry->targetValue === null) {
+                    continue;
+                }
+
+                if ($entry->targetValue === '') {
+                    continue;
+                }
+
+                if ($entry->targetValue === $entry->sourceValue) {
                     continue;
                 }
 

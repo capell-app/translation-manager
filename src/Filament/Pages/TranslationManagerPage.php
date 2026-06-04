@@ -196,7 +196,11 @@ final class TranslationManagerPage extends Page
         }
 
         foreach ($this->entries as $index => $entry) {
-            if ($entry['key'] !== $key || ! $entry['editable']) {
+            if ($entry['key'] !== $key) {
+                continue;
+            }
+
+            if (! $entry['editable']) {
                 continue;
             }
 
@@ -569,14 +573,14 @@ final class TranslationManagerPage extends Page
             return;
         }
 
-        $this->missingCodeKeys = collect(ScanMissingTranslationKeysAction::run($this->sourceKey, $this->sourceLocale))
-            ->map(fn ($missingKey): array => [
+        $this->missingCodeKeys = array_map(
+            static fn ($missingKey): array => [
                 'key' => $missingKey->key,
                 'path' => $missingKey->path,
                 'line' => $missingKey->line,
-            ])
-            ->values()
-            ->all();
+            ],
+            ScanMissingTranslationKeysAction::run($this->sourceKey, $this->sourceLocale),
+        );
 
         Notification::make()
             ->title(__('capell-translation-manager::package.missing_key_scan_complete', [

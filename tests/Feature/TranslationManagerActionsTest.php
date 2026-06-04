@@ -216,7 +216,7 @@ BLADE);
 
     $missingKeys = ScanMissingTranslationKeysAction::run('app', 'en');
 
-    expect(collect($missingKeys)->pluck('key')->all())->toBe(['messages.missing'])
+    expect(array_map(static fn ($missingKey): string => $missingKey->key, $missingKeys))->toBe(['messages.missing'])
         ->and($missingKeys[0]->line)->toBe(2);
 });
 

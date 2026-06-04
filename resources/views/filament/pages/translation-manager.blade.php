@@ -22,7 +22,9 @@
                         {{ __('capell-translation-manager::package.source_locale') }}
                     </span>
                     <x-filament::input.wrapper>
-                        <x-filament::input.select wire:model.live="sourceLocale">
+                        <x-filament::input.select
+                            wire:model.live="sourceLocale"
+                        >
                             @foreach ($locales as $locale)
                                 <option value="{{ $locale['locale'] }}">
                                     {{ $locale['locale'] }}
@@ -37,7 +39,9 @@
                         {{ __('capell-translation-manager::package.target_locale') }}
                     </span>
                     <x-filament::input.wrapper>
-                        <x-filament::input.select wire:model.live="targetLocale">
+                        <x-filament::input.select
+                            wire:model.live="targetLocale"
+                        >
                             @foreach ($locales as $locale)
                                 <option value="{{ $locale['locale'] }}">
                                     {{ $locale['locale'] }}
@@ -101,7 +105,9 @@
         @if ($readinessMatrix !== [])
             <x-filament::section>
                 <div class="space-y-3">
-                    <h2 class="text-base font-semibold text-gray-950 dark:text-white">
+                    <h2
+                        class="text-base font-semibold text-gray-950 dark:text-white"
+                    >
                         {{ __('capell-translation-manager::package.publish_readiness') }}
                     </h2>
 
@@ -110,12 +116,18 @@
                             <div
                                 class="rounded-lg border border-gray-200 p-3 text-sm dark:border-white/10"
                             >
-                                <div class="flex items-start justify-between gap-3">
+                                <div
+                                    class="flex items-start justify-between gap-3"
+                                >
                                     <div>
-                                        <div class="font-medium text-gray-950 dark:text-white">
+                                        <div
+                                            class="font-medium text-gray-950 dark:text-white"
+                                        >
                                             {{ $readiness['locale'] }}
                                         </div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                                        <div
+                                            class="text-xs text-gray-500 dark:text-gray-400"
+                                        >
                                             {{ trans_choice('capell-translation-manager::package.readiness_files', $readiness['fileCount'], ['count' => $readiness['fileCount']]) }}
                                             ·
                                             {{ trans_choice('capell-translation-manager::package.readiness_entries', $readiness['entryCount'], ['count' => $readiness['entryCount']]) }}
@@ -135,42 +147,62 @@
 
                                 <dl class="mt-3 grid grid-cols-5 gap-2 text-xs">
                                     <div>
-                                        <dt class="text-gray-500 dark:text-gray-400">
+                                        <dt
+                                            class="text-gray-500 dark:text-gray-400"
+                                        >
                                             {{ __('capell-translation-manager::package.status_missing') }}
                                         </dt>
-                                        <dd class="font-medium text-gray-950 dark:text-white">
+                                        <dd
+                                            class="font-medium text-gray-950 dark:text-white"
+                                        >
                                             {{ $readiness['missing'] }}
                                         </dd>
                                     </div>
                                     <div>
-                                        <dt class="text-gray-500 dark:text-gray-400">
+                                        <dt
+                                            class="text-gray-500 dark:text-gray-400"
+                                        >
                                             {{ __('capell-translation-manager::package.status_stale') }}
                                         </dt>
-                                        <dd class="font-medium text-gray-950 dark:text-white">
+                                        <dd
+                                            class="font-medium text-gray-950 dark:text-white"
+                                        >
                                             {{ $readiness['stale'] }}
                                         </dd>
                                     </div>
                                     <div>
-                                        <dt class="text-gray-500 dark:text-gray-400">
+                                        <dt
+                                            class="text-gray-500 dark:text-gray-400"
+                                        >
                                             {{ __('capell-translation-manager::package.status_changed') }}
                                         </dt>
-                                        <dd class="font-medium text-gray-950 dark:text-white">
+                                        <dd
+                                            class="font-medium text-gray-950 dark:text-white"
+                                        >
                                             {{ $readiness['changed'] }}
                                         </dd>
                                     </div>
                                     <div>
-                                        <dt class="text-gray-500 dark:text-gray-400">
+                                        <dt
+                                            class="text-gray-500 dark:text-gray-400"
+                                        >
                                             {{ __('capell-translation-manager::package.status_extra') }}
                                         </dt>
-                                        <dd class="font-medium text-gray-950 dark:text-white">
+                                        <dd
+                                            class="font-medium text-gray-950 dark:text-white"
+                                        >
                                             {{ $readiness['extra'] }}
                                         </dd>
                                     </div>
                                     <div>
-                                        <dt class="text-gray-500 dark:text-gray-400">
+                                        <dt
+                                            class="text-gray-500 dark:text-gray-400"
+                                        >
                                             {{ __('capell-translation-manager::package.status_fallback') }}
                                         </dt>
-                                        <dd class="font-medium text-gray-950 dark:text-white">
+                                        <dd
+                                            class="font-medium text-gray-950 dark:text-white"
+                                        >
                                             {{ $readiness['fallback'] }}
                                         </dd>
                                     </div>
@@ -185,14 +217,20 @@
         @if ($missingCodeKeys !== [])
             <x-filament::section>
                 <div class="space-y-3">
-                    <h2 class="text-base font-semibold text-gray-950 dark:text-white">
+                    <h2
+                        class="text-base font-semibold text-gray-950 dark:text-white"
+                    >
                         {{ __('capell-translation-manager::package.missing_code_keys') }}
                     </h2>
 
                     <div class="overflow-x-auto">
-                        <table class="w-full divide-y divide-gray-200 text-sm dark:divide-white/10">
+                        <table
+                            class="w-full divide-y divide-gray-200 text-sm dark:divide-white/10"
+                        >
                             <thead>
-                                <tr class="text-left text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+                                <tr
+                                    class="text-left text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+                                >
                                     <th class="py-2 pr-3">
                                         {{ __('capell-translation-manager::package.key') }}
                                     </th>
@@ -204,18 +242,26 @@
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-100 dark:divide-white/10">
+                            <tbody
+                                class="divide-y divide-gray-100 dark:divide-white/10"
+                            >
                                 @foreach ($missingCodeKeys as $missingKey)
                                     <tr>
                                         <td class="py-2 pr-3 align-top">
-                                            <code class="text-xs text-gray-700 dark:text-gray-300">
+                                            <code
+                                                class="text-xs text-gray-700 dark:text-gray-300"
+                                            >
                                                 {{ $missingKey['key'] }}
                                             </code>
                                         </td>
-                                        <td class="py-2 pr-3 align-top text-xs text-gray-500 dark:text-gray-400">
+                                        <td
+                                            class="py-2 pr-3 align-top text-xs text-gray-500 dark:text-gray-400"
+                                        >
                                             {{ $missingKey['path'] }}
                                         </td>
-                                        <td class="py-2 align-top text-xs text-gray-500 dark:text-gray-400">
+                                        <td
+                                            class="py-2 align-top text-xs text-gray-500 dark:text-gray-400"
+                                        >
                                             {{ $missingKey['line'] }}
                                         </td>
                                     </tr>
@@ -297,26 +343,32 @@
 
                                             @if (array_key_exists($entry['key'], $pendingAiSuggestions))
                                                 <div
-                                                    class="mt-2 rounded-md border border-primary-200 bg-primary-50 p-2 text-xs dark:border-primary-400/30 dark:bg-primary-400/10"
+                                                    class="border-primary-200 bg-primary-50 dark:border-primary-400/30 dark:bg-primary-400/10 mt-2 rounded-md border p-2 text-xs"
                                                 >
-                                                    <div class="font-medium text-primary-800 dark:text-primary-200">
+                                                    <div
+                                                        class="text-primary-800 dark:text-primary-200 font-medium"
+                                                    >
                                                         {{ __('capell-translation-manager::package.ai_suggestion') }}
                                                     </div>
-                                                    <div class="mt-1 whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+                                                    <div
+                                                        class="mt-1 whitespace-pre-wrap text-gray-700 dark:text-gray-300"
+                                                    >
                                                         {{ $pendingAiSuggestions[$entry['key']] }}
                                                     </div>
-                                                    <div class="mt-2 flex gap-2">
+                                                    <div
+                                                        class="mt-2 flex gap-2"
+                                                    >
                                                         <button
                                                             type="button"
                                                             wire:click="acceptAiSuggestion(@js($entry['key']))"
-                                                            class="text-primary-700 text-xs font-medium dark:text-primary-300"
+                                                            class="text-primary-700 dark:text-primary-300 text-xs font-medium"
                                                         >
                                                             {{ __('capell-translation-manager::package.accept_suggestion') }}
                                                         </button>
                                                         <button
                                                             type="button"
                                                             wire:click="rejectAiSuggestion(@js($entry['key']))"
-                                                            class="text-gray-600 text-xs font-medium dark:text-gray-300"
+                                                            class="text-xs font-medium text-gray-600 dark:text-gray-300"
                                                         >
                                                             {{ __('capell-translation-manager::package.reject_suggestion') }}
                                                         </button>

@@ -78,7 +78,11 @@ final class ScanMissingTranslationKeysAction
             }
 
             foreach ($filesystem->allFiles($scanPath) as $file) {
-                if (! $file instanceof SplFileInfo || ! $this->isScannableFile($file)) {
+                if (! $file instanceof SplFileInfo) {
+                    continue;
+                }
+
+                if (! $this->isScannableFile($file)) {
                     continue;
                 }
 
@@ -100,11 +104,15 @@ final class ScanMissingTranslationKeysAction
             return [];
         }
 
-        return collect($paths)
-            ->filter(static fn (mixed $path): bool => is_string($path) && $path !== '')
-            ->map(static fn (string $path): string => $path)
-            ->values()
-            ->all();
+        $scanPaths = [];
+
+        foreach ($paths as $path) {
+            if (is_string($path) && $path !== '') {
+                $scanPaths[] = $path;
+            }
+        }
+
+        return $scanPaths;
     }
 
     private function isScannableFile(SplFileInfo $file): bool
@@ -127,15 +135,11 @@ final class ScanMissingTranslationKeysAction
         preg_match_all('/(?:__|trans|trans_choice|@lang)\(\s*([\'"])([^\'"]+)\1/', $contents, $matches, PREG_OFFSET_CAPTURE);
         $references = [];
 
-        foreach ($matches[2] ?? [] as [$key, $offset]) {
-            if (! is_string($key) || $key === '') {
-                continue;
-            }
-
+        foreach ($matches[2] as [$key, $offset]) {
             $references[] = new MissingTranslationKeyData(
                 key: $key,
                 path: $file->getPathname(),
-                line: substr_count(substr($contents, 0, (int) $offset), "\n") + 1,
+                line: substr_count(substr($contents, 0, $offset), "\n") + 1,
             );
         }
 

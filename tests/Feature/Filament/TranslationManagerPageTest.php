@@ -161,6 +161,7 @@ it('only saves server-authorized editable translation keys from Livewire state',
 
     $page->entries = [
         [
+            'index' => 0,
             'key' => 'title',
             'sourceValue' => 'Hello',
             'targetValue' => 'Bonjour',
@@ -168,6 +169,7 @@ it('only saves server-authorized editable translation keys from Livewire state',
             'editable' => false,
         ],
         [
+            'index' => 1,
             'key' => 'admin.injected',
             'sourceValue' => 'Injected',
             'targetValue' => 'Injected',

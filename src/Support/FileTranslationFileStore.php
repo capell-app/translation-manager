@@ -175,13 +175,13 @@ final class FileTranslationFileStore implements TranslationFileStore
                         sourceExists: $sourceExists,
                         targetExists: $targetExists,
                         fallbackExists: $fallbackEntry['exists'],
-                        fallbackValue: is_string($fallbackValue) ? $fallbackValue : null,
                         sourceValue: is_string($sourceValue) ? $sourceValue : null,
                         targetValue: is_string($targetValue) ? $targetValue : null,
-                        sourceHash: is_string($sourceValue) ? $this->sourceHash($sourceValue) : null,
-                        translatedSourceHash: $targetSourceHashes[$key] ?? null,
+                        fallbackValue: is_string($fallbackValue) ? $fallbackValue : null,
                         sourceModifiedAt: $sourceModifiedAt,
                         targetModifiedAt: $targetModifiedAt,
+                        sourceHash: is_string($sourceValue) ? $this->sourceHash($sourceValue) : null,
+                        translatedSourceHash: $targetSourceHashes[$key] ?? null,
                     ),
                     editable: $sourceEntry['editable'] || $targetEntry['editable'],
                 );
@@ -329,13 +329,20 @@ final class FileTranslationFileStore implements TranslationFileStore
         $sourceValues = TranslationArray::flattenStrings($this->read($write->source, $write->fileKey, $sourceLocale, false));
 
         foreach ($write->values as $key => $targetValue) {
-            if (! is_string($targetValue) || $targetValue === '') {
+            if (! is_string($targetValue)) {
+                continue;
+            }
+
+            if ($targetValue === '') {
                 continue;
             }
 
             $sourceValue = $sourceValues[$key] ?? null;
+            if (! is_string($sourceValue)) {
+                continue;
+            }
 
-            if (! is_string($sourceValue) || $sourceValue === '') {
+            if ($sourceValue === '') {
                 continue;
             }
 
@@ -414,9 +421,9 @@ final class FileTranslationFileStore implements TranslationFileStore
      */
     private function placeholders(string $value): array
     {
-        preg_match_all('/(?<!:):[A-Za-z_][A-Za-z0-9_]*/', $value, $matches);
+        preg_match_all('/(?<!:):[A-Za-z_]\w*/', $value, $matches);
 
-        return array_values(array_unique($matches[0] ?? []));
+        return array_values(array_unique($matches[0]));
     }
 
     /**
