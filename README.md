@@ -1,6 +1,6 @@
 # Translation Manager
 
-File-based Laravel translation management for Capell and Filament admin panels with stale detection, CSV, XLIFF, and PO/gettext import-export, per-locale publish readiness, placeholder/plural validation, AI drafting review, and safe package override writes.
+File-based Laravel translation management for Capell and Filament admin panels with side-by-side locale editing, missing and stale key checks, placeholder/plural validation, reviewed AI drafting when configured, and safe package override writes.
 
 ## At A Glance
 
@@ -21,22 +21,23 @@ File-based Laravel translation management for Capell and Filament admin panels w
 - Tracks source hashes per saved key so unrelated source-file edits do not mark every target key stale.
 - Distinguishes truly missing keys from keys covered by Laravel's configured fallback locale.
 - Scans configured application paths for `__()`, `trans()`, `trans_choice()`, and `@lang()` references that do not exist in the selected source locale.
-- Keeps AI suggestions in a review state until an editor accepts or rejects each suggestion.
+- Keeps AI suggestions in a review state until an editor accepts or rejects each suggestion when an AI translator is configured.
 - Reuses exact source-string matches from existing translations as translation-memory suggestions before calling AI.
+- Pairs with SEO Suite when multilingual teams need translation coverage alongside search, metadata, and AI-discovery workflows.
 - Enforces configured glossary terms during save/import.
 
 ## Best Used With
 
-- [AI Orchestrator](../ai-orchestrator/README.md)
+- [AI Orchestrator](../ai-orchestrator/README.md) for reviewed translation drafts
 - [Diagnostics](../diagnostics/README.md)
-- [SEO Suite](../seo-suite/README.md)
+- [SEO Suite](../seo-suite/README.md) for multilingual SEO and AI-discovery coverage
 - [Welcome Tour](../welcome-tour/README.md)
 
 ## What It Adds
 
-- File-based Laravel translation management for Capell and Filament admin panels with stale detection, CSV and XLIFF import-export, per-locale publish readiness, AI drafting, and safe package override writes.
+- File-based Laravel translation management for Capell and Filament admin panels with missing and stale key checks, safe package override writes, and optional reviewed AI drafting.
 - Locale creation and duplication from the package admin page.
-- CSV, XLIFF, and PO/gettext import/export header actions for the selected translation file.
+- CSV, XLIFF, and PO/gettext import/export actions for the selected translation file.
 - A per-locale publish-readiness matrix showing missing, stale, changed, and extra counts.
 - A combined "Needs attention" filter for missing, stale, and changed entries.
 - Per-key stale detection for translations saved through the package, with file-mtime fallback for legacy files without metadata.
@@ -44,7 +45,7 @@ File-based Laravel translation management for Capell and Filament admin panels w
 - A missing-key scan action for code references that are absent from language files.
 - Translation-memory suggestions and glossary validation for consistent wording.
 - Filament-native selector, checkbox, and input-wrapper controls in the translation grid.
-- Optional AI translation only when a host application binds a translator implementation.
+- Optional AI translation only when a host application binds a translator implementation, typically through AI Orchestrator.
 
 ## Code Map
 

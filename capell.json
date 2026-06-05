@@ -6,7 +6,7 @@
     "kind": "package",
     "capellApiVersion": "^4.0",
     "version": "4.x-dev",
-    "description": "Translation Manager gives admins a file-based editor for every Laravel language file in your Capell app and its packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys at a glance, and create or duplicate locales in one click. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Install AI Orchestrator to add one-click AI drafting for selected keys, with review before anything is saved.",
+    "description": "Translation Manager gives admins a file-based editor for Laravel language files in your Capell app and installed packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys, and create or duplicate locale files from the admin workflow. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Pair it with AI Orchestrator for reviewed translation drafts and with SEO Suite when multilingual search teams need translation coverage alongside SEO and AI-discovery workflows.",
     "product": {
         "group": "Capell Admin",
         "tier": "premium",
@@ -16,7 +16,7 @@
     "surfaces": ["admin"],
     "dependencies": {
         "requires": ["capell-app/admin", "capell-app/core"],
-        "supports": ["capell-app/ai-orchestrator"],
+        "supports": ["capell-app/ai-orchestrator", "capell-app/seo-suite"],
         "conflicts": []
     },
     "providers": {
@@ -120,8 +120,8 @@
         "privateDocsRequested": true
     },
     "marketplace": {
-        "summary": "Edit, translate, and ship your Capell language files from one Filament screen — with side-by-side source/target comparison, stale-key detection, and AI drafting that never touches a database.",
-        "description": "Translation Manager gives admins a file-based editor for every Laravel language file in your Capell app and its packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys at a glance, and create or duplicate locales in one click. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Install AI Orchestrator to add one-click AI drafting for selected keys, with review before anything is saved.",
+        "summary": "Manage Capell language files from one Filament page with side-by-side locale editing, missing and stale key checks, safe override writes, and optional reviewed AI drafting.",
+        "description": "Translation Manager gives admins a file-based editor for Laravel language files in your Capell app and installed packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys, and create or duplicate locale files from the admin workflow. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Pair it with AI Orchestrator for reviewed translation drafts and with SEO Suite when multilingual search teams need translation coverage alongside SEO and AI-discovery workflows.",
         "screenshots": [
             {
                 "path": "docs/assets/marketplace/extension-card.jpg",

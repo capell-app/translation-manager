@@ -1,6 +1,6 @@
 {
     "name": "capell-app/translation-manager",
-    "description": "Edit, translate, and ship your Capell language files from one Filament screen — with side-by-side source/target comparison, stale-key detection, and AI drafting that never touches a database.",
+    "description": "File-based Capell translation editing with side-by-side locale comparison, missing and stale key checks, safe override writes, and optional reviewed AI drafting.",
     "type": "library",
     "license": "proprietary",
     "autoload": {
@@ -29,7 +29,8 @@
         "spatie/laravel-package-tools": "^1.14.1"
     },
     "suggest": {
-        "capell-app/ai-orchestrator": "Enable optional AI translation capabilities."
+        "capell-app/ai-orchestrator": "Enable optional reviewed AI translation drafts.",
+        "capell-app/seo-suite": "Pair translation coverage with SEO and AI-discovery workflows."
     },
     "homepage": "https://github.com/capell-app/translation-manager",
     "keywords": [

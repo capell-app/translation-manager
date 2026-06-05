@@ -93,7 +93,7 @@ Table-stakes already shipped: source/target grid, stale detection (mtime-based),
 | Fix partial-override merge so editor view matches Laravel runtime                | Now    | M      | High   | §4          |
 | Correct manifest healthChecks label / adminQueryBudget to match reality          | Now    | S      | Med    | §4          |
 | Done/Shipped: Memoize source discovery + locale/comparison filesystem scans. Evidence: file-listing and comparison caches are request-local and flush after translation writes, with focused filesystem-count coverage. | Done | S | Med | §4 |
-| Rewrite summary + composer description; add ai-orchestrator/seo-suite cross-sell | Now    | S      | Med    | §5          |
+| Done/Shipped: Rewrite summary + composer description; add ai-orchestrator/seo-suite cross-sell. Evidence: `capell.json` and package `composer.json` now use conservative editor-focused copy, declare/suggest AI Orchestrator and SEO Suite as optional pairings, README/docs copy matches shipped behavior, and `ManifestRequirementsTest` locks the manifest/composer wording. | Done | S | Med | §5 |
 | Add placeholder/plural preservation validation on save                           | Next   | M      | High   | §3          |
 | Add MT review gate (accept/reject AI drafts before write)                        | Next   | M      | High   | §3          |
 | Per-locale completeness/coverage matrix view (uses existing readiness data)      | Next   | M      | Med    | §3          |

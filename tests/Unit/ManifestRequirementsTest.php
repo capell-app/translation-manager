@@ -27,10 +27,22 @@ it('declares translation workflow capabilities actions and admin page contributi
         associative: true,
         flags: JSON_THROW_ON_ERROR,
     );
+    $composer = json_decode(
+        (string) file_get_contents(__DIR__ . '/../../composer.json'),
+        associative: true,
+        flags: JSON_THROW_ON_ERROR,
+    );
 
-    expect($manifest['description'])->toContain('file-based editor for every Laravel language file')
-        ->and($manifest['marketplace']['summary'])->toBe('Edit, translate, and ship your Capell language files from one Filament screen — with side-by-side source/target comparison, stale-key detection, and AI drafting that never touches a database.')
-        ->and($manifest['marketplace']['description'])->toContain('Install AI Orchestrator to add one-click AI drafting')
+    expect($manifest['description'])->toContain('file-based editor for Laravel language files')
+        ->and($manifest['description'])->toContain('Pair it with AI Orchestrator')
+        ->and($manifest['description'])->toContain('with SEO Suite')
+        ->and($manifest['dependencies']['supports'])->toContain('capell-app/ai-orchestrator', 'capell-app/seo-suite')
+        ->and($manifest['marketplace']['summary'])->toBe('Manage Capell language files from one Filament page with side-by-side locale editing, missing and stale key checks, safe override writes, and optional reviewed AI drafting.')
+        ->and($manifest['marketplace']['description'])->toContain('Pair it with AI Orchestrator for reviewed translation drafts')
+        ->and($manifest['marketplace']['description'])->toContain('with SEO Suite when multilingual search teams need translation coverage')
+        ->and($composer['description'])->toBe('File-based Capell translation editing with side-by-side locale comparison, missing and stale key checks, safe override writes, and optional reviewed AI drafting.')
+        ->and($composer['suggest'])->toHaveKey('capell-app/ai-orchestrator', 'Enable optional reviewed AI translation drafts.')
+        ->and($composer['suggest'])->toHaveKey('capell-app/seo-suite', 'Pair translation coverage with SEO and AI-discovery workflows.')
         ->and($manifest['providers']['runtime'])->toContain(TranslationManagerServiceProvider::class)
         ->and($manifest['providers']['admin'])->toContain(AdminServiceProvider::class)
         ->and($manifest['contributes'])->toContain([

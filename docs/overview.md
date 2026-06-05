@@ -1,6 +1,6 @@
 # Translation Manager Overview
 
-Translation Manager is a Capell admin package for managing Laravel language files from Filament.
+Translation Manager is a Capell admin package for managing Laravel language files from Filament, with safe package override writes and optional reviewed AI drafting.
 
 The package is file-first. App language files are editable in place. Package and vendor files are treated as read-only source material unless explicitly configured otherwise; edits are written to Laravel override paths so package upgrades remain safe.
 
@@ -10,7 +10,7 @@ Phase one does not create Capell language records, database tables, jobs, or fro
 
 - Composer package: `capell-app/translation-manager`
 - Hard dependencies: `capell-app/admin`, `capell-app/core`
-- Optional dependencies: `capell-app/ai-orchestrator` for AI translation drafting
+- Optional dependencies: `capell-app/ai-orchestrator` for reviewed AI translation drafts; `capell-app/seo-suite` for pairing translation coverage with multilingual SEO and AI-discovery workflows
 - Database impact: no migrations or settings tables owned by this package
 - Public frontend impact: none
 
