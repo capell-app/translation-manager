@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\TranslationManager\Tests\Fixtures;
 
 use Illuminate\Filesystem\Filesystem;
+use Override;
 
 final class CountingFilesystem extends Filesystem
 {
@@ -12,6 +13,7 @@ final class CountingFilesystem extends Filesystem
 
     public int $lastModifiedCalls = 0;
 
+    #[Override]
     public function allFiles(mixed $directory, mixed $hidden = false): array
     {
         $this->allFilesCalls++;
@@ -19,6 +21,7 @@ final class CountingFilesystem extends Filesystem
         return parent::allFiles($directory, $hidden);
     }
 
+    #[Override]
     public function lastModified(mixed $path): int
     {
         $this->lastModifiedCalls++;

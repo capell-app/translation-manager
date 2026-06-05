@@ -22,52 +22,47 @@ use Capell\TranslationManager\Providers\AdminServiceProvider;
 use Capell\TranslationManager\Providers\TranslationManagerServiceProvider;
 
 it('declares translation workflow capabilities actions and admin page contribution', function (): void {
-    $manifest = json_decode(
-        (string) file_get_contents(__DIR__ . '/../../capell.json'),
-        associative: true,
-        flags: JSON_THROW_ON_ERROR,
-    );
-    $composer = json_decode(
-        (string) file_get_contents(__DIR__ . '/../../composer.json'),
-        associative: true,
-        flags: JSON_THROW_ON_ERROR,
-    );
+    $manifest = capell_json_file_array(__DIR__ . '/../../capell.json');
+    $composer = capell_json_file_array(__DIR__ . '/../../composer.json');
+    $screenshots = data_get($manifest, 'marketplace.screenshots', []);
 
-    expect($manifest['description'])->toContain('file-based editor for Laravel language files')
-        ->and($manifest['description'])->toContain('Pair it with AI Orchestrator')
-        ->and($manifest['description'])->toContain('with SEO Suite')
-        ->and($manifest['dependencies']['supports'])->toContain('capell-app/ai-orchestrator', 'capell-app/seo-suite')
-        ->and($manifest['marketplace']['summary'])->toBe('Manage Capell language files from one Filament page with side-by-side locale editing, missing and stale key checks, safe override writes, and optional reviewed AI drafting.')
-        ->and($manifest['marketplace']['description'])->toContain('Pair it with AI Orchestrator for reviewed translation drafts')
-        ->and($manifest['marketplace']['description'])->toContain('with SEO Suite when multilingual search teams need translation coverage')
+    throw_unless(is_array($screenshots), RuntimeException::class, 'Translation Manager screenshots must be an array.');
+
+    expect(data_get($manifest, 'description'))->toContain('file-based editor for Laravel language files')
+        ->and(data_get($manifest, 'description'))->toContain('Pair it with AI Orchestrator')
+        ->and(data_get($manifest, 'description'))->toContain('with SEO Suite')
+        ->and(data_get($manifest, 'dependencies.supports'))->toContain('capell-app/ai-orchestrator', 'capell-app/seo-suite')
+        ->and(data_get($manifest, 'marketplace.summary'))->toBe('Manage Capell language files from one Filament page with side-by-side locale editing, missing and stale key checks, safe override writes, and optional reviewed AI drafting.')
+        ->and(data_get($manifest, 'marketplace.description'))->toContain('Pair it with AI Orchestrator for reviewed translation drafts')
+        ->and(data_get($manifest, 'marketplace.description'))->toContain('with SEO Suite when multilingual search teams need translation coverage')
         ->and($composer['description'])->toBe('File-based Capell translation editing with side-by-side locale comparison, missing and stale key checks, safe override writes, and optional reviewed AI drafting.')
-        ->and($composer['suggest'])->toHaveKey('capell-app/ai-orchestrator', 'Enable optional reviewed AI translation drafts.')
-        ->and($composer['suggest'])->toHaveKey('capell-app/seo-suite', 'Pair translation coverage with SEO and AI-discovery workflows.')
-        ->and($manifest['performance']['adminQueryBudget'])->toBe(0)
-        ->and($manifest['healthChecks'][0]['label'])->toBe('Translation Manager diagnostics verify the admin surface, service bindings, and safe filesystem configuration.')
-        ->and($manifest['providers']['runtime'])->toContain(TranslationManagerServiceProvider::class)
-        ->and($manifest['providers']['admin'])->toContain(AdminServiceProvider::class)
-        ->and($manifest['contributes'])->toContain([
+        ->and(data_get($composer, 'suggest'))->toHaveKey('capell-app/ai-orchestrator', 'Enable optional reviewed AI translation drafts.')
+        ->and(data_get($composer, 'suggest'))->toHaveKey('capell-app/seo-suite', 'Pair translation coverage with SEO and AI-discovery workflows.')
+        ->and(data_get($manifest, 'performance.adminQueryBudget'))->toBe(0)
+        ->and(data_get($manifest, 'healthChecks.0.label'))->toBe('Translation Manager diagnostics verify the admin surface, service bindings, and safe filesystem configuration.')
+        ->and(data_get($manifest, 'providers.runtime'))->toContain(TranslationManagerServiceProvider::class)
+        ->and(data_get($manifest, 'providers.admin'))->toContain(AdminServiceProvider::class)
+        ->and(data_get($manifest, 'contributes'))->toContain([
             'type' => 'admin-page',
             'class' => TranslationManagerPageContribution::class,
             'pageClass' => TranslationManagerPage::class,
             'labelKey' => 'capell-translation-manager::package.navigation_label',
         ])
-        ->and($manifest['actions'])->toHaveKey('buildLocalePublishReadiness', BuildLocalePublishReadinessAction::class)
-        ->and($manifest['actions'])->toHaveKey('buildTranslationMemorySuggestions', BuildTranslationMemorySuggestionsAction::class)
-        ->and($manifest['actions'])->toHaveKey('createLocaleFiles', CreateLocaleFilesAction::class)
-        ->and($manifest['actions'])->toHaveKey('duplicateLocale', DuplicateLocaleAction::class)
-        ->and($manifest['actions'])->toHaveKey('exportTranslationEntriesToCsv', ExportTranslationEntriesToCsvAction::class)
-        ->and($manifest['actions'])->toHaveKey('exportTranslationEntriesToPo', ExportTranslationEntriesToPoAction::class)
-        ->and($manifest['actions'])->toHaveKey('exportTranslationEntriesToXliff', ExportTranslationEntriesToXliffAction::class)
-        ->and($manifest['actions'])->toHaveKey('importTranslationEntriesFromCsv', ImportTranslationEntriesFromCsvAction::class)
-        ->and($manifest['actions'])->toHaveKey('importTranslationEntriesFromPo', ImportTranslationEntriesFromPoAction::class)
-        ->and($manifest['actions'])->toHaveKey('importTranslationEntriesFromXliff', ImportTranslationEntriesFromXliffAction::class)
-        ->and($manifest['actions'])->toHaveKey('loadTranslationComparison', LoadTranslationComparisonAction::class)
-        ->and($manifest['actions'])->toHaveKey('saveTranslationEntries', SaveTranslationEntriesAction::class)
-        ->and($manifest['actions'])->toHaveKey('scanMissingTranslationKeys', ScanMissingTranslationKeysAction::class)
-        ->and($manifest['actions'])->toHaveKey('translateSelectedEntries', TranslateSelectedEntriesAction::class)
-        ->and($manifest['capabilities'])->toContain(
+        ->and(data_get($manifest, 'actions'))->toHaveKey('buildLocalePublishReadiness', BuildLocalePublishReadinessAction::class)
+        ->and(data_get($manifest, 'actions'))->toHaveKey('buildTranslationMemorySuggestions', BuildTranslationMemorySuggestionsAction::class)
+        ->and(data_get($manifest, 'actions'))->toHaveKey('createLocaleFiles', CreateLocaleFilesAction::class)
+        ->and(data_get($manifest, 'actions'))->toHaveKey('duplicateLocale', DuplicateLocaleAction::class)
+        ->and(data_get($manifest, 'actions'))->toHaveKey('exportTranslationEntriesToCsv', ExportTranslationEntriesToCsvAction::class)
+        ->and(data_get($manifest, 'actions'))->toHaveKey('exportTranslationEntriesToPo', ExportTranslationEntriesToPoAction::class)
+        ->and(data_get($manifest, 'actions'))->toHaveKey('exportTranslationEntriesToXliff', ExportTranslationEntriesToXliffAction::class)
+        ->and(data_get($manifest, 'actions'))->toHaveKey('importTranslationEntriesFromCsv', ImportTranslationEntriesFromCsvAction::class)
+        ->and(data_get($manifest, 'actions'))->toHaveKey('importTranslationEntriesFromPo', ImportTranslationEntriesFromPoAction::class)
+        ->and(data_get($manifest, 'actions'))->toHaveKey('importTranslationEntriesFromXliff', ImportTranslationEntriesFromXliffAction::class)
+        ->and(data_get($manifest, 'actions'))->toHaveKey('loadTranslationComparison', LoadTranslationComparisonAction::class)
+        ->and(data_get($manifest, 'actions'))->toHaveKey('saveTranslationEntries', SaveTranslationEntriesAction::class)
+        ->and(data_get($manifest, 'actions'))->toHaveKey('scanMissingTranslationKeys', ScanMissingTranslationKeysAction::class)
+        ->and(data_get($manifest, 'actions'))->toHaveKey('translateSelectedEntries', TranslateSelectedEntriesAction::class)
+        ->and(data_get($manifest, 'capabilities'))->toContain(
             'translation.files.csv-import-export',
             'translation.files.code-missing-key-scan',
             'translation.files.fallback-awareness',
@@ -82,13 +77,13 @@ it('declares translation workflow capabilities actions and admin page contributi
             'translation.files.xliff-import-export',
             'translation.files.write',
         )
-        ->and($manifest['marketplace']['screenshots'])->toHaveCount(6)
-        ->and(array_column($manifest['marketplace']['screenshots'], 'path'))->toContain(
+        ->and($screenshots)->toHaveCount(6)
+        ->and(array_column($screenshots, 'path'))->toContain(
             'docs/screenshots/translation-manager-page-empty-state.png',
             'docs/screenshots/translation-manager-comparison-grid.png',
             'docs/screenshots/translation-manager-create-locale-modal.png',
             'docs/screenshots/translation-manager-duplicate-locale-modal.png',
             'docs/screenshots/translation-manager-ai-translate-selected.png',
         )
-        ->and($manifest['contributionTraceability']['deferredContributions'])->not->toContain('admin-page');
+        ->and(data_get($manifest, 'contributionTraceability.deferredContributions'))->not->toContain('admin-page');
 });

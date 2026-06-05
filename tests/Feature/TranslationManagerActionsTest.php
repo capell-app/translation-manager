@@ -200,7 +200,7 @@ it('memoizes file listings and comparisons until translation files are written',
     app()->forgetInstance(TranslationFileStore::class);
     app()->singleton(
         TranslationFileStore::class,
-        static fn (): FileTranslationFileStore => new FileTranslationFileStore($filesystem, app(LocaleValidator::class)),
+        static fn (): FileTranslationFileStore => new FileTranslationFileStore($filesystem, resolve(LocaleValidator::class)),
     );
 
     ListTranslationFilesAction::run('app', 'en', 'fr');
