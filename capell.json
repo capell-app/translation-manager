@@ -107,7 +107,7 @@
     "healthChecks": [
         {
             "key": "translation-manager.package-health",
-            "label": "Translation Manager package surfaces, providers, and install health are discoverable by Diagnostics.",
+            "label": "Translation Manager diagnostics verify the admin surface, service bindings, and safe filesystem configuration.",
             "class": "Capell\\TranslationManager\\Health\\TranslationManagerHealthCheck",
             "severity": "critical",
             "surface": "admin"

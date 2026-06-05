@@ -43,6 +43,8 @@ it('declares translation workflow capabilities actions and admin page contributi
         ->and($composer['description'])->toBe('File-based Capell translation editing with side-by-side locale comparison, missing and stale key checks, safe override writes, and optional reviewed AI drafting.')
         ->and($composer['suggest'])->toHaveKey('capell-app/ai-orchestrator', 'Enable optional reviewed AI translation drafts.')
         ->and($composer['suggest'])->toHaveKey('capell-app/seo-suite', 'Pair translation coverage with SEO and AI-discovery workflows.')
+        ->and($manifest['performance']['adminQueryBudget'])->toBe(0)
+        ->and($manifest['healthChecks'][0]['label'])->toBe('Translation Manager diagnostics verify the admin surface, service bindings, and safe filesystem configuration.')
         ->and($manifest['providers']['runtime'])->toContain(TranslationManagerServiceProvider::class)
         ->and($manifest['providers']['admin'])->toContain(AdminServiceProvider::class)
         ->and($manifest['contributes'])->toContain([
