@@ -18,7 +18,11 @@ use Capell\TranslationManager\Actions\ListTranslationSourcesAction;
 use Capell\TranslationManager\Actions\LoadTranslationComparisonAction;
 use Capell\TranslationManager\Actions\SaveTranslationEntriesAction;
 use Capell\TranslationManager\Actions\ScanMissingTranslationKeysAction;
+use Capell\TranslationManager\Contracts\TranslationFileStore;
 use Capell\TranslationManager\Data\TranslationEntryData;
+use Capell\TranslationManager\Support\FileTranslationFileStore;
+use Capell\TranslationManager\Support\LocaleValidator;
+use Capell\TranslationManager\Tests\Fixtures\CountingFilesystem;
 use Capell\TranslationManager\Tests\Fixtures\PackageTranslationFixtureServiceProvider;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
 use Illuminate\Support\Facades\Date;
@@ -188,6 +192,42 @@ it('keeps changed status when the target file is newer than the source file', fu
     throw_if($titleEntry === null, RuntimeException::class, 'Expected compared translation entry to exist.');
 
     expect($titleEntry->status)->toBe('changed');
+});
+
+it('memoizes file listings and comparisons until translation files are written', function (): void {
+    $filesystem = new CountingFilesystem;
+
+    app()->forgetInstance(TranslationFileStore::class);
+    app()->singleton(
+        TranslationFileStore::class,
+        static fn (): FileTranslationFileStore => new FileTranslationFileStore($filesystem, app(LocaleValidator::class)),
+    );
+
+    ListTranslationFilesAction::run('app', 'en', 'fr');
+    $allFilesCalls = $filesystem->allFilesCalls;
+
+    ListTranslationFilesAction::run('app', 'en', 'fr');
+
+    expect($filesystem->allFilesCalls)->toBe($allFilesCalls);
+
+    $entries = collect(LoadTranslationComparisonAction::run('app', 'php:messages', 'en', 'fr'));
+    $lastModifiedCalls = $filesystem->lastModifiedCalls;
+
+    LoadTranslationComparisonAction::run('app', 'php:messages', 'en', 'fr');
+
+    expect($filesystem->lastModifiedCalls)->toBe($lastModifiedCalls)
+        ->and($entries->firstWhere('key', 'title')?->targetValue)->toBe('Bonjour');
+
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', [
+        'title' => 'Salut',
+    ]);
+
+    ListTranslationFilesAction::run('app', 'en', 'fr');
+
+    $entries = collect(LoadTranslationComparisonAction::run('app', 'php:messages', 'en', 'fr'));
+
+    expect($filesystem->allFilesCalls)->toBeGreaterThan($allFilesCalls)
+        ->and($entries->firstWhere('key', 'title')?->targetValue)->toBe('Salut');
 });
 
 it('marks missing target values as covered when Laravel fallback locale has a value', function (): void {

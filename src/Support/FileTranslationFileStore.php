@@ -16,6 +16,21 @@ use InvalidArgumentException;
 
 final class FileTranslationFileStore implements TranslationFileStore
 {
+    /**
+     * @var array<string, array<int, LocaleSummaryData>>
+     */
+    private array $localesCache = [];
+
+    /**
+     * @var array<string, array<int, TranslationFileData>>
+     */
+    private array $filesCache = [];
+
+    /**
+     * @var array<string, array<int, TranslationEntryData>>
+     */
+    private array $comparisonCache = [];
+
     public function __construct(
         private readonly Filesystem $filesystem,
         private readonly LocaleValidator $localeValidator,
@@ -23,6 +38,12 @@ final class FileTranslationFileStore implements TranslationFileStore
 
     public function locales(TranslationSourceData $source): array
     {
+        $cacheKey = $this->sourceCacheKey($source);
+
+        if (array_key_exists($cacheKey, $this->localesCache)) {
+            return $this->localesCache[$cacheKey];
+        }
+
         $locales = [];
 
         foreach ([$source->sourcePath, $source->overridePath] as $path) {
@@ -77,7 +98,7 @@ final class FileTranslationFileStore implements TranslationFileStore
             }
         }
 
-        return collect($locales)
+        $summaries = collect($locales)
             ->map(fn (array $locale): LocaleSummaryData => new LocaleSummaryData(
                 locale: $locale['locale'],
                 fileCount: count($this->files($source, $locale['locale'], $locale['locale'])),
@@ -87,12 +108,20 @@ final class FileTranslationFileStore implements TranslationFileStore
             ->sortBy(fn (LocaleSummaryData $locale): string => $locale->locale)
             ->values()
             ->all();
+
+        return $this->localesCache[$cacheKey] = $summaries;
     }
 
     public function files(TranslationSourceData $source, string $sourceLocale, string $targetLocale): array
     {
         $this->localeValidator->assertValid($sourceLocale);
         $this->localeValidator->assertValid($targetLocale);
+
+        $cacheKey = $this->filesCacheKey($source, $sourceLocale, $targetLocale);
+
+        if (array_key_exists($cacheKey, $this->filesCache)) {
+            return $this->filesCache[$cacheKey];
+        }
 
         $files = [];
 
@@ -132,16 +161,24 @@ final class FileTranslationFileStore implements TranslationFileStore
             }
         }
 
-        return collect($files)
+        $translationFiles = collect($files)
             ->sortBy(fn (TranslationFileData $file): string => $file->label)
             ->values()
             ->all();
+
+        return $this->filesCache[$cacheKey] = $translationFiles;
     }
 
     public function comparison(TranslationSourceData $source, string $fileKey, string $sourceLocale, string $targetLocale): array
     {
         $this->localeValidator->assertValid($sourceLocale);
         $this->localeValidator->assertValid($targetLocale);
+
+        $cacheKey = $this->comparisonCacheKey($source, $fileKey, $sourceLocale, $targetLocale);
+
+        if (array_key_exists($cacheKey, $this->comparisonCache)) {
+            return $this->comparisonCache[$cacheKey];
+        }
 
         $fallbackLocale = $this->fallbackLocale($sourceLocale, $targetLocale);
         $sourceEntries = TranslationArray::flattenForEditor($this->read($source, $fileKey, $sourceLocale, false));
@@ -152,7 +189,7 @@ final class FileTranslationFileStore implements TranslationFileStore
         $targetModifiedAt = $this->fileModifiedAt($source, $fileKey, $targetLocale);
         $keys = collect([...array_keys($sourceEntries), ...array_keys($targetEntries)])->unique()->sort()->values();
 
-        return $keys
+        $entries = $keys
             ->map(function (string $key) use ($sourceEntries, $targetEntries, $fallbackEntries, $targetSourceHashes, $sourceModifiedAt, $targetModifiedAt): TranslationEntryData {
                 $sourceEntry = $sourceEntries[$key] ?? ['value' => null, 'editable' => false, 'exists' => false];
                 $targetEntry = $targetEntries[$key] ?? [
@@ -187,6 +224,8 @@ final class FileTranslationFileStore implements TranslationFileStore
                 );
             })
             ->all();
+
+        return $this->comparisonCache[$cacheKey] = $entries;
     }
 
     public function createLocale(TranslationSourceData $source, string $locale, string $sourceLocale): void
@@ -242,6 +281,7 @@ final class FileTranslationFileStore implements TranslationFileStore
 
         $this->writeValues($write->source, $write->fileKey, $write->locale, $currentValues);
         $this->writeSourceHashMetadata($write);
+        $this->flushSourceCache($write->source);
     }
 
     public function exportCsv(TranslationSourceData $source, string $fileKey, string $sourceLocale, string $targetLocale): string
@@ -713,6 +753,59 @@ final class FileTranslationFileStore implements TranslationFileStore
     private function sourceHash(string $sourceValue): string
     {
         return hash('sha256', $sourceValue);
+    }
+
+    private function sourceCacheKey(TranslationSourceData $source): string
+    {
+        return hash('sha256', implode("\0", [
+            $source->key,
+            $source->sourcePath,
+            $source->overridePath,
+            $source->namespace ?? '',
+            $source->type,
+            $source->sourceWritable ? '1' : '0',
+        ]));
+    }
+
+    private function filesCacheKey(TranslationSourceData $source, string $sourceLocale, string $targetLocale): string
+    {
+        return implode(':', [
+            $this->sourceCacheKey($source),
+            $sourceLocale,
+            $targetLocale,
+        ]);
+    }
+
+    private function comparisonCacheKey(TranslationSourceData $source, string $fileKey, string $sourceLocale, string $targetLocale): string
+    {
+        $fallbackLocale = config('app.fallback_locale');
+
+        return implode(':', [
+            $this->sourceCacheKey($source),
+            $fileKey,
+            $sourceLocale,
+            $targetLocale,
+            is_string($fallbackLocale) ? $fallbackLocale : '',
+        ]);
+    }
+
+    private function flushSourceCache(TranslationSourceData $source): void
+    {
+        $sourceCacheKey = $this->sourceCacheKey($source);
+
+        unset($this->localesCache[$sourceCacheKey]);
+
+        foreach (array_keys($this->filesCache) as $cacheKey) {
+            if (str_starts_with($cacheKey, $sourceCacheKey . ':')) {
+                unset($this->filesCache[$cacheKey]);
+            }
+        }
+
+        foreach (array_keys($this->comparisonCache) as $cacheKey) {
+            if (str_starts_with($cacheKey, $sourceCacheKey . ':')) {
+                unset($this->comparisonCache[$cacheKey]);
+            }
+        }
     }
 
     /**
