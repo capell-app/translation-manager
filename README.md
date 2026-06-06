@@ -75,6 +75,7 @@ File-based Laravel translation management for Capell and Filament admin panels w
 - Code scanning paths are configured through `capell-translation-manager.scan_paths`.
 - Glossary terms are configured through `capell-translation-manager.glossary.{locale}`.
 - AI suggestions are stored in page state and must be accepted before they become target values.
+- XLIFF and PO export actions build one selected language file at a time in memory; keep very large translation sets split by file unless a future scale task introduces streamed export writers.
 
 ## Extension Points
 
