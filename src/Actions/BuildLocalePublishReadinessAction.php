@@ -22,6 +22,7 @@ final class BuildLocalePublishReadinessAction
             'changed' => 0,
             'same' => 0,
             'extra' => 0,
+            'fallback' => 0,
         ];
         $entryCount = 0;
 

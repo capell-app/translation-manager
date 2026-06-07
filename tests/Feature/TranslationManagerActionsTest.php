@@ -3,17 +3,26 @@
 declare(strict_types=1);
 
 use Capell\TranslationManager\Actions\BuildLocalePublishReadinessAction;
+use Capell\TranslationManager\Actions\BuildTranslationMemorySuggestionsAction;
 use Capell\TranslationManager\Actions\CreateLocaleFilesAction;
 use Capell\TranslationManager\Actions\DuplicateLocaleAction;
 use Capell\TranslationManager\Actions\ExportTranslationEntriesToCsvAction;
+use Capell\TranslationManager\Actions\ExportTranslationEntriesToPoAction;
 use Capell\TranslationManager\Actions\ExportTranslationEntriesToXliffAction;
 use Capell\TranslationManager\Actions\ImportTranslationEntriesFromCsvAction;
+use Capell\TranslationManager\Actions\ImportTranslationEntriesFromPoAction;
 use Capell\TranslationManager\Actions\ImportTranslationEntriesFromXliffAction;
 use Capell\TranslationManager\Actions\ListInstalledLocalesAction;
 use Capell\TranslationManager\Actions\ListTranslationFilesAction;
 use Capell\TranslationManager\Actions\ListTranslationSourcesAction;
 use Capell\TranslationManager\Actions\LoadTranslationComparisonAction;
 use Capell\TranslationManager\Actions\SaveTranslationEntriesAction;
+use Capell\TranslationManager\Actions\ScanMissingTranslationKeysAction;
+use Capell\TranslationManager\Contracts\TranslationFileStore;
+use Capell\TranslationManager\Data\TranslationEntryData;
+use Capell\TranslationManager\Support\FileTranslationFileStore;
+use Capell\TranslationManager\Support\LocaleValidator;
+use Capell\TranslationManager\Tests\Fixtures\CountingFilesystem;
 use Capell\TranslationManager\Tests\Fixtures\PackageTranslationFixtureServiceProvider;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
 use Illuminate\Support\Facades\Date;
@@ -141,6 +150,35 @@ it('marks translated entries stale when the source file is newer than the target
     expect($titleEntry->status)->toBe('stale');
 });
 
+it('uses per-key source hashes to avoid stale noise from unrelated source edits', function (): void {
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', [
+        'title' => 'Bonjour',
+        'nested.body' => 'Bienvenue',
+    ]);
+
+    File::put($this->appLanguagePath . '/en/messages.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'title' => 'Hello',
+    'nested' => [
+        'body' => 'Welcome updated',
+        'count' => 10,
+    ],
+];
+PHP);
+
+    touch($this->appLanguagePath . '/en/messages.php', Date::now()->getTimestamp());
+    touch($this->appLanguagePath . '/fr/messages.php', Date::now()->subMinutes(2)->getTimestamp());
+
+    $entries = collect(LoadTranslationComparisonAction::run('app', 'php:messages', 'en', 'fr'));
+
+    expect($entries->firstWhere('key', 'title')?->status)->toBe('changed')
+        ->and($entries->firstWhere('key', 'nested.body')?->status)->toBe('stale');
+});
+
 it('keeps changed status when the target file is newer than the source file', function (): void {
     $sourcePath = $this->appLanguagePath . '/en/messages.php';
     $targetPath = $this->appLanguagePath . '/fr/messages.php';
@@ -154,6 +192,72 @@ it('keeps changed status when the target file is newer than the source file', fu
     throw_if($titleEntry === null, RuntimeException::class, 'Expected compared translation entry to exist.');
 
     expect($titleEntry->status)->toBe('changed');
+});
+
+it('memoizes file listings and comparisons until translation files are written', function (): void {
+    $filesystem = new CountingFilesystem;
+
+    app()->forgetInstance(TranslationFileStore::class);
+    app()->singleton(
+        TranslationFileStore::class,
+        static fn (): FileTranslationFileStore => new FileTranslationFileStore($filesystem, resolve(LocaleValidator::class)),
+    );
+
+    ListTranslationFilesAction::run('app', 'en', 'fr');
+    $allFilesCalls = $filesystem->allFilesCalls;
+
+    ListTranslationFilesAction::run('app', 'en', 'fr');
+
+    expect($filesystem->allFilesCalls)->toBe($allFilesCalls);
+
+    $entries = collect(LoadTranslationComparisonAction::run('app', 'php:messages', 'en', 'fr'));
+    $lastModifiedCalls = $filesystem->lastModifiedCalls;
+
+    LoadTranslationComparisonAction::run('app', 'php:messages', 'en', 'fr');
+
+    expect($filesystem->lastModifiedCalls)->toBe($lastModifiedCalls)
+        ->and($entries->firstWhere('key', 'title')?->targetValue)->toBe('Bonjour');
+
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', [
+        'title' => 'Salut',
+    ]);
+
+    ListTranslationFilesAction::run('app', 'en', 'fr');
+
+    $entries = collect(LoadTranslationComparisonAction::run('app', 'php:messages', 'en', 'fr'));
+
+    expect($filesystem->allFilesCalls)->toBeGreaterThan($allFilesCalls)
+        ->and($entries->firstWhere('key', 'title')?->targetValue)->toBe('Salut');
+});
+
+it('marks missing target values as covered when Laravel fallback locale has a value', function (): void {
+    config()->set('app.fallback_locale', 'fr');
+
+    $entries = collect(LoadTranslationComparisonAction::run('app', 'php:messages', 'en', 'de'));
+    $readiness = BuildLocalePublishReadinessAction::run('app', 'en', 'de');
+
+    expect($entries->firstWhere('key', 'title')?->status)->toBe('fallback')
+        ->and($readiness->statusCounts['fallback'])->toBe(1)
+        ->and($readiness->statusCounts['missing'])->toBeGreaterThanOrEqual(1);
+});
+
+it('scans application code for referenced translation keys missing from language files', function (): void {
+    $scanPath = $this->translationBasePath . '/views';
+    File::ensureDirectoryExists($scanPath);
+    File::put($scanPath . '/welcome.blade.php', <<<'BLADE'
+{{ __('messages.title') }}
+{{ __('messages.missing') }}
+{{ __('Plain string') }}
+{{ __('capell-fixture-package::package.missing') }}
+@lang('messages.nested.body')
+BLADE);
+
+    config()->set('capell-translation-manager.scan_paths', [$scanPath]);
+
+    $missingKeys = ScanMissingTranslationKeysAction::run('app', 'en');
+
+    expect(array_map(static fn ($missingKey): string => $missingKey->key, $missingKeys))->toBe(['messages.missing'])
+        ->and($missingKeys[0]->line)->toBe(2);
 });
 
 it('saves app language files in place while preserving unedited entries', function (): void {
@@ -284,6 +388,34 @@ XML;
         ->and($values['nested']['body'])->toBe('Bienvenue');
 });
 
+it('exports and imports target translation values as PO gettext', function (): void {
+    $po = ExportTranslationEntriesToPoAction::run('app', 'php:messages', 'en', 'fr');
+
+    expect($po)->toContain('msgctxt "nested.body"')
+        ->and($po)->toContain('msgid "Welcome"')
+        ->and($po)->toContain('msgstr ""');
+
+    $result = ImportTranslationEntriesFromPoAction::run('app', 'php:messages', 'fr', <<<'PO'
+msgctxt "nested.body"
+msgid "Welcome"
+msgstr "Bienvenue"
+
+msgctxt "title"
+msgid "Hello"
+msgstr "Salut"
+
+msgid "Ignored"
+msgstr "Ignored"
+PO);
+
+    $values = require $this->appLanguagePath . '/fr/messages.php';
+
+    expect($result->importedCount)->toBe(2)
+        ->and($result->skippedCount)->toBe(1)
+        ->and($values['title'])->toBe('Salut')
+        ->and($values['nested']['body'])->toBe('Bienvenue');
+});
+
 it('builds locale publish readiness from missing and stale entries', function (): void {
     $sourcePath = $this->appLanguagePath . '/en/messages.php';
     $targetPath = $this->appLanguagePath . '/fr/messages.php';
@@ -376,6 +508,113 @@ it('writes package translations to Laravel override files by default', function 
         ->and(File::exists($sourcePath))->toBeFalse()
         ->and($values['heading'])->toBe('Titre de package');
 });
+
+it('merges package override files with source files while comparing translations', function (): void {
+    File::put($this->packagePath . '/resources/lang/en/package.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'heading' => 'Package heading',
+    'cta' => 'Read more',
+];
+PHP);
+
+    File::ensureDirectoryExists(lang_path('vendor/capell-fixture-package/fr'));
+    File::put(lang_path('vendor/capell-fixture-package/fr/package.php'), <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'heading' => 'Titre de package',
+];
+PHP);
+
+    $entries = collect(LoadTranslationComparisonAction::run('package:capell-app/fixture-package', 'php:package', 'en', 'fr'));
+
+    expect($entries->firstWhere('key', 'heading')?->targetValue)->toBe('Titre de package')
+        ->and($entries->firstWhere('key', 'cta')?->sourceValue)->toBe('Read more')
+        ->and($entries->firstWhere('key', 'cta')?->status)->toBe('missing');
+});
+
+it('rejects translated strings that drop source placeholders', function (): void {
+    File::put($this->appLanguagePath . '/en/messages.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'cart' => 'You have :count items',
+];
+PHP);
+
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', [
+        'cart' => 'Vous avez des articles',
+    ]);
+})->throws(InvalidArgumentException::class, 'The cart translation must preserve these placeholders: :count.');
+
+it('rejects translated strings that drop source plural forms', function (): void {
+    File::put($this->appLanguagePath . '/en/messages.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'cart' => 'One item|Many items',
+];
+PHP);
+
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', [
+        'cart' => 'Plusieurs articles',
+    ]);
+})->throws(InvalidArgumentException::class, 'The cart translation must preserve the same plural forms as the source string.');
+
+it('suggests translations from exact source-value memory matches', function (): void {
+    File::put($this->appLanguagePath . '/en/messages.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'title' => 'Hello',
+    'alternate' => 'Hello',
+];
+PHP);
+
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', [
+        'title' => 'Bonjour',
+    ]);
+
+    $suggestions = BuildTranslationMemorySuggestionsAction::run('app', 'en', 'fr', [
+        new TranslationEntryData('alternate', 'Hello', null, 'missing', true),
+    ]);
+
+    expect($suggestions)->toHaveCount(1)
+        ->and($suggestions[0]->key)->toBe('alternate')
+        ->and($suggestions[0]->value)->toBe('Bonjour');
+});
+
+it('rejects translated strings that violate configured glossary terms', function (): void {
+    config()->set('capell-translation-manager.glossary.fr', [
+        'CMS' => 'SGC',
+    ]);
+
+    File::put($this->appLanguagePath . '/en/messages.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+return [
+    'product' => 'Capell CMS',
+];
+PHP);
+
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', [
+        'product' => 'Gestionnaire Capell',
+    ]);
+})->throws(InvalidArgumentException::class, 'The product translation must use "SGC" for the glossary term "CMS".');
 
 it('can write package source files only when package source writes are enabled', function (): void {
     config()->set('capell-translation-manager.package_source_writes', true);

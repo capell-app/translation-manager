@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\AIOrchestrator\Data\AIOrchestratorRunData;
 use Capell\AIOrchestrator\Enums\AIOrchestratorApprovalLevel;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
+use Capell\TranslationManager\Contracts\TranslationFileStore;
 use Capell\TranslationManager\Data\AITranslationSuggestionData;
 use Capell\TranslationManager\Data\LocaleSummaryData;
 use Capell\TranslationManager\Data\TranslationCsvImportResultData;
@@ -119,6 +120,21 @@ it('exposes translation manager AI module metadata and health compatibility', fu
         ->and($capabilities[0]->actionClass)->toBe(DraftSelectedTranslationsAction::class)
         ->and($capabilities[0]->approvalLevel)->toBe(AIOrchestratorApprovalLevel::Draft)
         ->and(TranslationManagerHealthCheck::compatibleCapellApiVersion())->toBe('^4.0');
+});
+
+it('reports real translation manager health diagnostics', function (): void {
+    expect(TranslationManagerHealthCheck::runDiagnostics())->toHaveCount(3)
+        ->and(TranslationManagerHealthCheck::passed())->toBeTrue();
+});
+
+it('fails translation manager health when a required binding is broken', function (): void {
+    app()->instance(TranslationFileStore::class, new class {});
+
+    $check = new TranslationManagerHealthCheck;
+
+    expect($check->serviceBindingsCheck()->passed)->toBeFalse()
+        ->and($check->unresolvableBindings())->toContain(TranslationFileStore::class)
+        ->and(TranslationManagerHealthCheck::passed())->toBeFalse();
 });
 
 it('drafts selected translations from AI orchestrator run context', function (): void {

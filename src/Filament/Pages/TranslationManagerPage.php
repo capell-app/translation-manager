@@ -6,29 +6,42 @@ namespace Capell\TranslationManager\Filament\Pages;
 
 use BackedEnum;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\TranslationManager\Actions\BuildLocalePublishReadinessAction;
 use Capell\TranslationManager\Actions\CreateLocaleFilesAction;
 use Capell\TranslationManager\Actions\DuplicateLocaleAction;
+use Capell\TranslationManager\Actions\ExportTranslationEntriesToCsvAction;
+use Capell\TranslationManager\Actions\ExportTranslationEntriesToPoAction;
+use Capell\TranslationManager\Actions\ExportTranslationEntriesToXliffAction;
+use Capell\TranslationManager\Actions\ImportTranslationEntriesFromCsvAction;
+use Capell\TranslationManager\Actions\ImportTranslationEntriesFromPoAction;
+use Capell\TranslationManager\Actions\ImportTranslationEntriesFromXliffAction;
 use Capell\TranslationManager\Actions\ListInstalledLocalesAction;
 use Capell\TranslationManager\Actions\ListTranslationFilesAction;
 use Capell\TranslationManager\Actions\ListTranslationSourcesAction;
 use Capell\TranslationManager\Actions\LoadTranslationComparisonAction;
 use Capell\TranslationManager\Actions\SaveTranslationEntriesAction;
+use Capell\TranslationManager\Actions\ScanMissingTranslationKeysAction;
 use Capell\TranslationManager\Actions\TranslateSelectedEntriesAction;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
+use Capell\TranslationManager\Data\LocalePublishReadinessData;
 use Capell\TranslationManager\Data\LocaleSummaryData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Data\TranslationFileData;
 use Capell\TranslationManager\Data\TranslationSourceData;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Override;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class TranslationManagerPage extends Page
 {
+    private const string SESSION_SELECTION_KEY = 'capell.translation-manager.selection';
+
     public ?string $sourceKey = null;
 
     public string $sourceLocale = 'en';
@@ -48,11 +61,20 @@ final class TranslationManagerPage extends Page
     /** @var array<int, array{key: string, label: string, type: string, relativePath: string}> */
     public array $files = [];
 
-    /** @var array<int, array{key: string, sourceValue: string|null, targetValue: string|null, status: string, editable: bool}> */
+    /** @var array<int, array{index: int, key: string, sourceValue: string|null, targetValue: string|null, status: string, editable: bool}> */
     public array $entries = [];
+
+    /** @var array<int, array{locale: string, fileCount: int, entryCount: int, missing: int, stale: int, changed: int, same: int, extra: int, fallback: int, ready: bool}> */
+    public array $readinessMatrix = [];
 
     /** @var array<int, string> */
     public array $selectedEntryKeys = [];
+
+    /** @var array<string, string> */
+    public array $pendingAiSuggestions = [];
+
+    /** @var array<int, array{key: string, path: string, line: int}> */
+    public array $missingCodeKeys = [];
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedLanguage;
 
@@ -88,10 +110,19 @@ final class TranslationManagerPage extends Page
 
     public function mount(): void
     {
+        $selection = session()->get(self::SESSION_SELECTION_KEY, []);
         $configuredSourceLocale = config('capell-translation-manager.source_locale', 'en');
-        $this->sourceLocale = is_string($configuredSourceLocale) ? $configuredSourceLocale : 'en';
+        $this->sourceLocale = is_array($selection) && is_string($selection['sourceLocale'] ?? null)
+            ? $selection['sourceLocale']
+            : (is_string($configuredSourceLocale) ? $configuredSourceLocale : 'en');
+        $this->targetLocale = is_array($selection) && is_string($selection['targetLocale'] ?? null) ? $selection['targetLocale'] : null;
+        $this->fileKey = is_array($selection) && is_string($selection['fileKey'] ?? null) ? $selection['fileKey'] : null;
+        $this->filter = is_array($selection) && is_string($selection['filter'] ?? null) ? $selection['filter'] : 'all';
+
         $this->loadSources();
-        $this->sourceKey = $this->sources[0]['key'] ?? null;
+        $savedSourceKey = is_array($selection) && is_string($selection['sourceKey'] ?? null) ? $selection['sourceKey'] : null;
+        $sourceKeys = array_column($this->sources, 'key');
+        $this->sourceKey = in_array($savedSourceKey, $sourceKeys, true) ? $savedSourceKey : ($this->sources[0]['key'] ?? null);
         $this->refreshBrowser();
     }
 
@@ -106,17 +137,26 @@ final class TranslationManagerPage extends Page
     {
         $this->refreshFiles();
         $this->loadEntries();
+        $this->refreshReadinessMatrix();
+        $this->rememberSelection();
     }
 
     public function updatedTargetLocale(): void
     {
         $this->refreshFiles();
         $this->loadEntries();
+        $this->rememberSelection();
     }
 
     public function updatedFileKey(): void
     {
         $this->loadEntries();
+        $this->rememberSelection();
+    }
+
+    public function updatedFilter(): void
+    {
+        $this->rememberSelection();
     }
 
     public function refreshBrowser(): void
@@ -124,6 +164,8 @@ final class TranslationManagerPage extends Page
         $this->refreshLocales();
         $this->refreshFiles();
         $this->loadEntries();
+        $this->refreshReadinessMatrix();
+        $this->rememberSelection();
     }
 
     public function saveTranslations(): void
@@ -147,13 +189,47 @@ final class TranslationManagerPage extends Page
             ->send();
     }
 
+    public function acceptAiSuggestion(string $key): void
+    {
+        if (! array_key_exists($key, $this->pendingAiSuggestions)) {
+            return;
+        }
+
+        foreach ($this->entries as $index => $entry) {
+            if ($entry['key'] !== $key) {
+                continue;
+            }
+
+            if (! $entry['editable']) {
+                continue;
+            }
+
+            $this->entries[$index]['targetValue'] = $this->pendingAiSuggestions[$key];
+            unset($this->pendingAiSuggestions[$key]);
+
+            return;
+        }
+    }
+
+    public function rejectAiSuggestion(string $key): void
+    {
+        unset($this->pendingAiSuggestions[$key]);
+    }
+
     /**
-     * @return array<int, array{key: string, sourceValue: string|null, targetValue: string|null, status: string, editable: bool}>
+     * @return array<int, array{index: int, key: string, sourceValue: string|null, targetValue: string|null, status: string, editable: bool}>
      */
     public function filteredEntries(): array
     {
         if ($this->filter === 'all') {
             return $this->entries;
+        }
+
+        if ($this->filter === 'needs_attention') {
+            return collect($this->entries)
+                ->filter(fn (array $entry): bool => in_array($entry['status'], ['missing', 'stale', 'changed'], true))
+                ->values()
+                ->all();
         }
 
         return collect($this->entries)
@@ -236,6 +312,52 @@ final class TranslationManagerPage extends Page
                 ->action(function (): void {
                     $this->translateSelectedEntries();
                 }),
+            Action::make('exportCsv')
+                ->label(__('capell-translation-manager::package.export_csv'))
+                ->icon(Heroicon::OutlinedArrowDownTray)
+                ->action(fn (): ?StreamedResponse => $this->exportCurrentFile('csv')),
+            Action::make('exportXliff')
+                ->label(__('capell-translation-manager::package.export_xliff'))
+                ->icon(Heroicon::OutlinedArrowDownTray)
+                ->action(fn (): ?StreamedResponse => $this->exportCurrentFile('xliff')),
+            Action::make('exportPo')
+                ->label(__('capell-translation-manager::package.export_po'))
+                ->icon(Heroicon::OutlinedArrowDownTray)
+                ->action(fn (): ?StreamedResponse => $this->exportCurrentFile('po')),
+            Action::make('importTranslations')
+                ->label(__('capell-translation-manager::package.import_translations'))
+                ->icon(Heroicon::OutlinedArrowUpTray)
+                ->schema([
+                    Select::make('format')
+                        ->label(__('capell-translation-manager::package.import_format'))
+                        ->options([
+                            'csv' => __('capell-translation-manager::package.format_csv'),
+                            'xliff' => __('capell-translation-manager::package.format_xliff'),
+                            'po' => __('capell-translation-manager::package.format_po'),
+                        ])
+                        ->default('csv')
+                        ->required(),
+                    Textarea::make('contents')
+                        ->label(__('capell-translation-manager::package.import_contents'))
+                        ->rows(12)
+                        ->required()
+                        ->columnSpanFull(),
+                ])
+                ->action(function (array $data): void {
+                    $this->importCurrentFile($data);
+                }),
+            Action::make('publishReadiness')
+                ->label(__('capell-translation-manager::package.publish_readiness'))
+                ->icon(Heroicon::OutlinedClipboardDocumentCheck)
+                ->action(function (): void {
+                    $this->notifyCurrentPublishReadiness();
+                }),
+            Action::make('scanMissingKeys')
+                ->label(__('capell-translation-manager::package.scan_missing_keys'))
+                ->icon(Heroicon::OutlinedMagnifyingGlass)
+                ->action(function (): void {
+                    $this->scanMissingCodeKeys();
+                }),
             Action::make('saveTranslations')
                 ->label(__('capell-translation-manager::package.save'))
                 ->icon(Heroicon::OutlinedCloudArrowUp)
@@ -310,6 +432,7 @@ final class TranslationManagerPage extends Page
     private function loadEntries(): void
     {
         $this->selectedEntryKeys = [];
+        $this->pendingAiSuggestions = [];
 
         if ($this->sourceKey === null || $this->fileKey === null || $this->targetLocale === null) {
             $this->entries = [];
@@ -317,16 +440,166 @@ final class TranslationManagerPage extends Page
             return;
         }
 
-        $this->entries = array_values(array_map(
-            fn (TranslationEntryData $entry): array => [
+        $this->entries = collect(resolve(LoadTranslationComparisonAction::class)->handle($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale))
+            ->map(fn (TranslationEntryData $entry, int $index): array => [
+                'index' => $index,
                 'key' => $entry->key,
                 'sourceValue' => $entry->sourceValue,
                 'targetValue' => $entry->targetValue,
                 'status' => $entry->status,
                 'editable' => $entry->editable,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function refreshReadinessMatrix(): void
+    {
+        if ($this->sourceKey === null || $this->locales === []) {
+            $this->readinessMatrix = [];
+
+            return;
+        }
+
+        $this->readinessMatrix = collect($this->locales)
+            ->pluck('locale')
+            ->filter(fn (string $locale): bool => $locale !== $this->sourceLocale)
+            ->map(fn (string $locale): array => $this->readinessRow(BuildLocalePublishReadinessAction::run(
+                $this->sourceKey,
+                $this->sourceLocale,
+                $locale,
+            )))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array{locale: string, fileCount: int, entryCount: int, missing: int, stale: int, changed: int, same: int, extra: int, fallback: int, ready: bool}
+     */
+    private function readinessRow(LocalePublishReadinessData $readiness): array
+    {
+        return [
+            'locale' => $readiness->targetLocale,
+            'fileCount' => $readiness->fileCount,
+            'entryCount' => $readiness->entryCount,
+            'missing' => $readiness->statusCounts['missing'] ?? 0,
+            'stale' => $readiness->statusCounts['stale'] ?? 0,
+            'changed' => $readiness->statusCounts['changed'] ?? 0,
+            'same' => $readiness->statusCounts['same'] ?? 0,
+            'extra' => $readiness->statusCounts['extra'] ?? 0,
+            'fallback' => $readiness->statusCounts['fallback'] ?? 0,
+            'ready' => $readiness->ready,
+        ];
+    }
+
+    private function exportCurrentFile(string $format): ?StreamedResponse
+    {
+        if ($this->sourceKey === null || $this->fileKey === null || $this->targetLocale === null) {
+            return null;
+        }
+
+        $contents = match ($format) {
+            'xliff' => ExportTranslationEntriesToXliffAction::run($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale),
+            'po' => ExportTranslationEntriesToPoAction::run($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale),
+            default => ExportTranslationEntriesToCsvAction::run($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale),
+        };
+
+        return response()->streamDownload(
+            static function () use ($contents): void {
+                echo $contents;
+            },
+            $this->downloadFilename($format),
+            ['Content-Type' => match ($format) {
+                'xliff' => 'application/x-xliff+xml',
+                'po' => 'text/x-gettext-translation',
+                default => 'text/csv',
+            }],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function importCurrentFile(array $data): void
+    {
+        if ($this->sourceKey === null || $this->fileKey === null || $this->targetLocale === null) {
+            return;
+        }
+
+        $contents = (string) ($data['contents'] ?? '');
+        $format = (string) ($data['format'] ?? 'csv');
+        $result = match ($format) {
+            'xliff' => ImportTranslationEntriesFromXliffAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
+            'po' => ImportTranslationEntriesFromPoAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
+            default => ImportTranslationEntriesFromCsvAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
+        };
+
+        $this->refreshBrowser();
+
+        Notification::make()
+            ->title(__('capell-translation-manager::package.imported', [
+                'imported' => $result->importedCount,
+                'skipped' => $result->skippedCount,
+            ]))
+            ->success()
+            ->send();
+    }
+
+    private function notifyCurrentPublishReadiness(): void
+    {
+        if ($this->sourceKey === null || $this->targetLocale === null) {
+            return;
+        }
+
+        $readiness = BuildLocalePublishReadinessAction::run($this->sourceKey, $this->sourceLocale, $this->targetLocale);
+
+        Notification::make()
+            ->title($readiness->ready
+                ? __('capell-translation-manager::package.publish_ready')
+                : __('capell-translation-manager::package.publish_not_ready'))
+            ->body(__('capell-translation-manager::package.publish_readiness_body', [
+                'files' => $readiness->fileCount,
+                'entries' => $readiness->entryCount,
+                'missing' => $readiness->statusCounts['missing'] ?? 0,
+                'stale' => $readiness->statusCounts['stale'] ?? 0,
+            ]))
+            ->status($readiness->ready ? 'success' : 'warning')
+            ->send();
+    }
+
+    private function scanMissingCodeKeys(): void
+    {
+        if ($this->sourceKey === null) {
+            return;
+        }
+
+        $this->missingCodeKeys = array_map(
+            static fn ($missingKey): array => [
+                'key' => $missingKey->key,
+                'path' => $missingKey->path,
+                'line' => $missingKey->line,
             ],
-            resolve(LoadTranslationComparisonAction::class)->handle($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale),
-        ));
+            ScanMissingTranslationKeysAction::run($this->sourceKey, $this->sourceLocale),
+        );
+
+        Notification::make()
+            ->title(__('capell-translation-manager::package.missing_key_scan_complete', [
+                'count' => count($this->missingCodeKeys),
+            ]))
+            ->status($this->missingCodeKeys === [] ? 'success' : 'warning')
+            ->send();
+    }
+
+    private function downloadFilename(string $format): string
+    {
+        return str($this->sourceKey . '-' . $this->sourceLocale . '-' . $this->targetLocale . '-' . $this->fileKey)
+            ->replace([':', '/', '\\'], '-')
+            ->append('.' . match ($format) {
+                'xliff' => 'xlf',
+                'po' => 'po',
+                default => 'csv',
+            })
+            ->toString();
     }
 
     private function translateSelectedEntries(): void
@@ -346,22 +619,14 @@ final class TranslationManagerPage extends Page
             $this->entries,
         ));
 
-        $suggestions = resolve(TranslateSelectedEntriesAction::class)->handle($this->sourceLocale, $this->targetLocale, $entryData, $this->selectedEntryKeys);
+        $suggestions = resolve(TranslateSelectedEntriesAction::class)->handle($this->sourceLocale, $this->targetLocale, $entryData, $this->selectedEntryKeys, $this->sourceKey);
         $suggestionsByKey = [];
 
         foreach ($suggestions as $suggestion) {
-            $suggestionsByKey[$suggestion->key] = $suggestion;
+            $suggestionsByKey[$suggestion->key] = $suggestion->value;
         }
 
-        foreach ($this->entries as $index => $entry) {
-            $suggestion = $suggestionsByKey[$entry['key']] ?? null;
-
-            if ($suggestion === null) {
-                continue;
-            }
-
-            $this->entries[$index]['targetValue'] = $suggestion->value;
-        }
+        $this->pendingAiSuggestions = $suggestionsByKey;
 
         Notification::make()
             ->title(__('capell-translation-manager::package.translated'))
@@ -397,6 +662,17 @@ final class TranslationManagerPage extends Page
                 return [$entry->key => is_string($submittedValue) ? $submittedValue : null];
             })
             ->all();
+    }
+
+    private function rememberSelection(): void
+    {
+        session()->put(self::SESSION_SELECTION_KEY, [
+            'sourceKey' => $this->sourceKey,
+            'sourceLocale' => $this->sourceLocale,
+            'targetLocale' => $this->targetLocale,
+            'fileKey' => $this->fileKey,
+            'filter' => $this->filter,
+        ]);
     }
 
     /**

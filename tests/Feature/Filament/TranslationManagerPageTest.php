@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as AuthenticatableUser;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 uses(TranslationManagerTestCase::class);
 
@@ -24,9 +25,11 @@ beforeEach(function (): void {
 
     File::ensureDirectoryExists($this->appLanguagePath . '/en');
     File::ensureDirectoryExists($this->appLanguagePath . '/fr');
+    File::ensureDirectoryExists($this->translationBasePath . '/views');
 
     config()->set('capell-translation-manager.app_source.path', $this->appLanguagePath);
     config()->set('capell-translation-manager.package_paths', []);
+    config()->set('capell-translation-manager.scan_paths', [$this->translationBasePath . '/views']);
 
     File::put($this->appLanguagePath . '/en/messages.php', <<<'PHP'
 <?php
@@ -130,7 +133,13 @@ it('filters saves and translates entries from the page state', function (): void
     $method = $reflection->getMethod('translateSelectedEntries');
     $method->invoke($page);
 
-    expect($page->entries[0]['targetValue'])->toBe('en:fr:Hello');
+    expect($page->entries[0]['targetValue'])->toBe('')
+        ->and($page->pendingAiSuggestions)->toBe(['title' => 'en:fr:Hello']);
+
+    $page->acceptAiSuggestion('title');
+
+    expect($page->entries[0]['targetValue'])->toBe('en:fr:Hello')
+        ->and($page->pendingAiSuggestions)->toBe([]);
 
     $page->saveTranslations();
 
@@ -152,6 +161,7 @@ it('only saves server-authorized editable translation keys from Livewire state',
 
     $page->entries = [
         [
+            'index' => 0,
             'key' => 'title',
             'sourceValue' => 'Hello',
             'targetValue' => 'Bonjour',
@@ -159,6 +169,7 @@ it('only saves server-authorized editable translation keys from Livewire state',
             'editable' => false,
         ],
         [
+            'index' => 1,
             'key' => 'admin.injected',
             'sourceValue' => 'Injected',
             'targetValue' => 'Injected',
@@ -210,6 +221,12 @@ it('drives locale creation duplication translation and save header actions from 
         'createLocale',
         'duplicateLocale',
         'translateSelected',
+        'exportCsv',
+        'exportXliff',
+        'exportPo',
+        'importTranslations',
+        'publishReadiness',
+        'scanMissingKeys',
         'saveTranslations',
     ]);
 
@@ -236,10 +253,66 @@ it('drives locale creation duplication translation and save header actions from 
 
     $page->selectedEntryKeys = ['title'];
     translationManagerRunAction($actions->get('translateSelected'));
+
+    expect($page->entries[0]['targetValue'])->toBe('Hello')
+        ->and($page->pendingAiSuggestions)->toBe(['title' => 'header:en:de:Hello']);
+
+    $page->acceptAiSuggestion('title');
     translationManagerRunAction($actions->get('saveTranslations'));
 
     expect($page->entries[0]['targetValue'])->toBe('header:en:de:Hello')
         ->and(File::getRequire($this->appLanguagePath . '/de/messages.php'))->toBe(['title' => 'header:en:de:Hello']);
+
+    $exportResponse = translationManagerRunAction($actions->get('exportCsv'));
+
+    expect($exportResponse)->toBeInstanceOf(StreamedResponse::class);
+
+    translationManagerRunAction($actions->get('importTranslations'), [
+        'format' => 'csv',
+        'contents' => "key,target_value\ntitle,Importe\n",
+    ]);
+    translationManagerRunAction($actions->get('publishReadiness'));
+
+    File::put($this->translationBasePath . '/views/missing.blade.php', "{{ __('messages.not_found') }}");
+    translationManagerRunAction($actions->get('scanMissingKeys'));
+
+    expect(File::getRequire($this->appLanguagePath . '/de/messages.php'))
+        ->toBe(['title' => 'Importe'])
+        ->and($page->missingCodeKeys[0]['key'])->toBe('messages.not_found');
+});
+
+it('persists selected source locale file and filter between page visits', function (): void {
+    session()->put('capell.translation-manager.selection', [
+        'sourceKey' => 'app',
+        'sourceLocale' => 'en',
+        'targetLocale' => 'fr',
+        'fileKey' => 'php:messages',
+        'filter' => 'needs_attention',
+    ]);
+
+    $page = resolve(TranslationManagerPage::class);
+    $page->mount();
+
+    expect($page->sourceKey)->toBe('app')
+        ->and($page->sourceLocale)->toBe('en')
+        ->and($page->targetLocale)->toBe('fr')
+        ->and($page->fileKey)->toBe('php:messages')
+        ->and($page->filter)->toBe('needs_attention')
+        ->and($page->filteredEntries())->toHaveCount(1)
+        ->and($page->readinessMatrix)->not->toBeEmpty();
+});
+
+it('rejects pending AI suggestions without changing target values', function (): void {
+    $page = resolve(TranslationManagerPage::class);
+    $page->mount();
+    $page->sourceKey = 'app';
+    $page->refreshBrowser();
+    $page->pendingAiSuggestions = ['title' => 'Suggestion'];
+
+    $page->rejectAiSuggestion('title');
+
+    expect($page->pendingAiSuggestions)->toBe([])
+        ->and($page->entries[0]['targetValue'])->toBe('');
 });
 
 /**
@@ -255,7 +328,7 @@ function translationManagerHeaderActions(TranslationManagerPage $page): array
 /**
  * @param  array<string, mixed>  $data
  */
-function translationManagerRunAction(?Action $action, array $data = []): void
+function translationManagerRunAction(?Action $action, array $data = []): mixed
 {
     expect($action)->toBeInstanceOf(Action::class);
 
@@ -263,5 +336,5 @@ function translationManagerRunAction(?Action $action, array $data = []): void
 
     expect($closure)->not->toBeNull();
 
-    $action->evaluate($closure, ['data' => $data], [Action::class => $action]);
+    return $action->evaluate($closure, ['data' => $data], [Action::class => $action]);
 }

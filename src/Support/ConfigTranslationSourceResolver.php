@@ -12,9 +12,18 @@ use ReflectionClass;
 
 final class ConfigTranslationSourceResolver implements TranslationSourceResolver
 {
+    /**
+     * @var array<int, TranslationSourceData>|null
+     */
+    private ?array $resolvedSources = null;
+
     public function sources(): array
     {
-        return collect([
+        if ($this->resolvedSources !== null) {
+            return $this->resolvedSources;
+        }
+
+        $this->resolvedSources = collect([
             $this->appSource(),
             ...$this->packageSources(),
             ...$this->vendorSources(),
@@ -24,6 +33,8 @@ final class ConfigTranslationSourceResolver implements TranslationSourceResolver
             ->sortBy(fn (TranslationSourceData $source): string => $source->label)
             ->values()
             ->all();
+
+        return $this->resolvedSources;
     }
 
     public function source(string $key): TranslationSourceData

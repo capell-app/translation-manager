@@ -73,10 +73,8 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
 
         $this->app->afterResolving(
             AIOrchestratorModuleRegistry::class,
-            function (object $registry): void {
-                if (method_exists($registry, 'register')) {
-                    $registry->register(new TranslationManagerAIOrchestratorModule);
-                }
+            function (AIOrchestratorModuleRegistry $registry): void {
+                $registry->register(new TranslationManagerAIOrchestratorModule);
             },
         );
 
