@@ -18,6 +18,9 @@
             "providers": [
                 "Capell\\TranslationManager\\Providers\\TranslationManagerServiceProvider"
             ]
+        },
+        "branch-alias": {
+            "dev-main": "4.x-dev"
         }
     },
     "require": {
