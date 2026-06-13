@@ -1,109 +1,95 @@
 # Translation Manager
 
-File-based Laravel translation management for Capell and Filament admin panels with side-by-side locale editing, missing and stale key checks, placeholder/plural validation, reviewed AI drafting when configured, and safe package override writes.
+<!-- prettier-ignore-start -->
 
-## At A Glance
+## What This Plugin Adds
 
-- Package: `capell-app/translation-manager`
-- Namespace: `Capell\TranslationManager\`
-- Surfaces: Filament admin
-- Service providers: `packages/translation-manager/src/Providers/AdminServiceProvider.php`, `packages/translation-manager/src/Providers/TranslationManagerServiceProvider.php`
-- Capell dependencies: `capell-app/admin`, `capell-app/core`
-- Third-party dependencies: `lorisleiva/laravel-actions`, `spatie/laravel-data`, `spatie/laravel-package-tools`
+Translation Manager is an **Available**, **No schema impact** Capell package in the **Capell Admin** product group. It ships as `capell-app/translation-manager` and extends these surfaces: admin.
 
-## Why It Helps Your Capell Workflow
+Translation Manager gives admins a file-based editor for Laravel language files in your Capell app and installed packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys, and create or duplicate locale files from the admin workflow. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Pair it with AI Orchestrator for reviewed translation drafts and with SEO Suite when multilingual search teams need translation coverage alongside SEO and AI-discovery workflows.
 
-- Provides a file-based Filament editor for Laravel language files with safe package override writes.
-- Helps owners and admins adjust labels and copy without editing vendor package files directly.
-- Gives developers a controlled translation workflow that respects package boundaries and override storage.
-- Keeps package override reads aligned with Laravel runtime behaviour by merging package source files with partial override files.
-- Prevents saved or imported translations from dropping source placeholders or plural forms once a target value is provided.
-- Tracks source hashes per saved key so unrelated source-file edits do not mark every target key stale.
-- Distinguishes truly missing keys from keys covered by Laravel's configured fallback locale.
-- Scans configured application paths for `__()`, `trans()`, `trans_choice()`, and `@lang()` references that do not exist in the selected source locale.
-- Keeps AI suggestions in a review state until an editor accepts or rejects each suggestion when an AI translator is configured.
-- Reuses exact source-string matches from existing translations as translation-memory suggestions before calling AI.
-- Pairs with SEO Suite when multilingual teams need translation coverage alongside search, metadata, and AI-discovery workflows.
-- Enforces configured glossary terms during save/import.
+After install, admins get package-owned management or reporting surfaces inside Capell.
 
-## Best Used With
+Status details:
 
-- [AI Orchestrator](../ai-orchestrator/README.md) for reviewed translation drafts
-- [Diagnostics](../diagnostics/README.md)
-- [SEO Suite](../seo-suite/README.md) for multilingual SEO and AI-discovery coverage
-- [Welcome Tour](../welcome-tour/README.md)
+- Status: Available
+- Tier: premium
+- Bundle: admin
+- Composer package: `capell-app/translation-manager`
+- Namespace: `Capell\TranslationManager`
+- Theme key: not applicable
 
-## What It Adds
+## Why It Matters
 
-- File-based Laravel translation management for Capell and Filament admin panels with missing and stale key checks, safe package override writes, and optional reviewed AI drafting.
-- Locale creation and duplication from the package admin page.
-- CSV, XLIFF, and PO/gettext import/export actions for the selected translation file.
-- A per-locale publish-readiness matrix showing missing, stale, changed, and extra counts.
-- A combined "Needs attention" filter for missing, stale, and changed entries.
-- Per-key stale detection for translations saved through the package, with file-mtime fallback for legacy files without metadata.
-- Fallback-locale awareness so readiness reports can show keys covered by `app.fallback_locale`.
-- A missing-key scan action for code references that are absent from language files.
-- Translation-memory suggestions and glossary validation for consistent wording.
-- Filament-native selector, checkbox, and input-wrapper controls in the translation grid.
-- Optional AI translation only when a host application binds a translator implementation, typically through AI Orchestrator.
+**For developers:** The package gives developers package-owned service providers, Actions, Data objects, Filament classes, and Blade views instead of pushing this behaviour into core or application code.
 
-## Code Map
+**For teams:** Manage Capell language files from one Filament page with side-by-side locale editing, missing and stale key checks, safe override writes, and optional reviewed AI drafting.
 
-| Area      | Path                                         | Purpose                                                             |
-| --------- | -------------------------------------------- | ------------------------------------------------------------------- |
-| Actions   | `packages/translation-manager/src/Actions`   | Domain operations. Test these directly where possible.              |
-| Data      | `packages/translation-manager/src/Data`      | Structured payloads, form state, view models, and integration data. |
-| Filament  | `packages/translation-manager/src/Filament`  | Admin resources, pages, widgets, and settings UI.                   |
-| Providers | `packages/translation-manager/src/Providers` | Registration, extension hooks, routes, migrations, and resources.   |
-| Resources | `packages/translation-manager/resources`     | Views, translations, assets, and package resources.                 |
-| Config    | `packages/translation-manager/config`        | Package configuration and publishable config.                       |
-| Tests     | `packages/translation-manager/tests`         | Package-level Pest coverage.                                        |
+## Screens And Workflow
 
-## Admin Surface
+Screenshot contract: `docs/screenshots.json`.
 
-- Pages: `TranslationManagerPage` at `/admin/translation-manager`.
-- Header actions: Create locale, Duplicate locale, Export CSV, Export XLIFF, Export PO, Import translations, Publish readiness, Scan missing keys, Save translations.
-- Optional header action: Translate selected, only when an AI translator binding is available.
+- Translation Manager page with source, locale, file, and filter selectors in the no-results state (admin, required).
+- Translation comparison grid with source strings, editable target strings, statuses, and entry selection (admin, required).
+- Create locale modal (admin, required).
+- Duplicate locale modal (admin, required).
+- Translate selected action visible with AI translator support (admin, optional).
 
-## Data And Persistence
+## Technical Shape
 
-- Config: `packages/translation-manager/config/capell-translation-manager.php`.
-- Data objects live in `src/Data/`; use them for payloads, form state, and view models.
-- Package and vendor override reads merge the source file with the override file. Writes still target Laravel override paths unless `package_source_writes` is explicitly enabled.
-- Save and import operations validate non-empty target values against the configured source locale. Targets must preserve source `:placeholders` and the same plural pipe count.
-- Save and import operations record per-key source hashes beside the target file in `*.capell-meta.json` metadata. Existing target files without metadata continue to use the older file-mtime stale heuristic until they are saved again.
-- Code scanning paths are configured through `capell-translation-manager.scan_paths`.
-- Glossary terms are configured through `capell-translation-manager.glossary.{locale}`.
-- AI suggestions are stored in page state and must be accepted before they become target values.
-- XLIFF and PO export actions build one selected language file at a time in memory; keep very large translation sets split by file unless a future scale task introduces streamed export writers.
+- Service providers: `Capell\TranslationManager\Providers\TranslationManagerServiceProvider`, `Capell\TranslationManager\Providers\AdminServiceProvider`.
+- Config files: `packages/translation-manager/config/capell-translation-manager.php`.
+- Filament classes: `TranslationManagerPage`.
+- Actions: `BuildLocalePublishReadinessAction`, `BuildTranslationMemorySuggestionsAction`, `CreateLocaleFilesAction`, `DuplicateLocaleAction`, `ExportTranslationEntriesToCsvAction`, `ExportTranslationEntriesToPoAction`, `ExportTranslationEntriesToXliffAction`, `ImportTranslationEntriesFromCsvAction`, `ImportTranslationEntriesFromPoAction`, `ImportTranslationEntriesFromXliffAction`, `ListInstalledLocalesAction`, `ListTranslationFilesAction`, `and 5 more`.
+- Data objects: `AITranslationSuggestionData`, `LocalePublishReadinessData`, `LocaleSummaryData`, `MissingTranslationKeyData`, `TranslationCsvImportResultData`, `TranslationEntryData`, `TranslationFileData`, `TranslationSourceData`, `TranslationWriteData`.
+- Manifest contributions: `admin-page: Capell\TranslationManager\Manifest\TranslationManagerPageContribution`.
+- Health checks: `Capell\TranslationManager\Health\TranslationManagerHealthCheck`.
+- Blade views: `packages/translation-manager/resources/views/filament/pages/translation-manager.blade.php`.
 
-## Extension Points
+## Data Model
 
-- Contracts: `TranslationAITranslator`, `TranslationFileStore`, `TranslationSourceResolver`.
-- Register Capell extension points, routes, migrations, settings, render hooks, and resources from service providers.
+This package has no schema impact. It does not declare package-owned migrations or required tables.
 
-## Install And Setup
+Docs gap: document extension points here if the package delegates persistence to a host package.
 
-- Install with `composer require capell-app/translation-manager` in the host Capell application.
-- In this repository, verify package changes with `vendor/bin/pest`; do not use `php artisan`.
-- For screenshots in a local package harness, set `capell-translation-manager.package_paths` to `[]` unless the pass is intentionally documenting package translation sources. This keeps uninstalled sibling package repositories out of the source selector.
+## Install Impact
 
-## Docs
+- Admin navigation: adds package-owned Filament classes when registered.
+- Permissions: none declared in `capell.json`.
+- Public routes: none detected in package route files.
+- Database changes: no package migrations declared.
+- Settings: no package settings declared.
+- Queues or schedules: none detected in standard package paths.
+- Cache tags: none declared.
+- Commands: none declared.
 
-- [docs index](docs/README.md)
-- [overview.md](docs/overview.md)
-- [screenshots.json](docs/screenshots.json)
-- [sources-stores-and-ai.md](docs/sources-stores-and-ai.md)
+## Common Pitfalls
 
-## Testing
+- Verify the package is installed before expecting its provider, views, or extension contributions to run.
+- Keep `composer.json`, `composer.local.json`, `capell.json`, docs, screenshots, and tests aligned when the package surface changes.
 
-Run package tests from the repository root:
+## Troubleshooting
 
-```bash
-vendor/bin/pest packages/translation-manager/tests --configuration=phpunit.xml
-```
+| Symptom | Likely cause | Check | Fix |
+| --- | --- | --- | --- |
+| Package surface is missing after install | Provider or manifest is not loaded | Confirm `capell.json`, package `composer.json`, and provider registration | Reinstall the package, refresh Composer autoload, and clear host caches |
 
-## Maintenance Notes
+## Quick Start
 
-- Put behaviour changes in `src/Actions/`; UI classes, commands, and controllers should call actions instead of owning domain logic.
-- Use package `Data` classes at boundaries instead of passing anonymous arrays between layers.
+1. Install the package: `composer require capell-app/translation-manager`.
+2. Run the required setup: no package migrations are declared; clear cached config and routes if the host app uses caches.
+3. Open the related Capell admin surface and verify Translation Manager appears.
+
+## Next Steps
+
+- [Package docs](docs/README.md)
+- [Overview](docs/overview.md)
+- [Screenshot contract](docs/screenshots.json)
+- [Marketplace assets](docs/assets/marketplace/)
+- [Capell content language plan](../../docs/CONTENT_LANGUAGE_PLAN.md)
+- [Capell documentation design system](../../docs/DESIGN_SYSTEM.md)
+- [Capell and package ERD notes](../../docs/erd/capell-and-package-erds.md)
+- Related packages: [Ai Orchestrator](../ai-orchestrator/README.md), [Seo Suite](../seo-suite/README.md).
+- Focused tests: `vendor/bin/pest packages/translation-manager/tests --configuration=phpunit.xml`.
+
+<!-- prettier-ignore-end -->
