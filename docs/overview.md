@@ -35,6 +35,50 @@ Screenshot contract: `screenshots.json`.
 - Duplicate locale modal (admin, required).
 - Translate selected action visible with AI translator support (admin, optional).
 
+## Screenshot Evidence
+
+These captures are the package-owned visual contract for the admin pages, public pages, actions, workflows, and feature surfaces described above. Keep this section aligned with `docs/screenshots.json` whenever the package surface changes.
+
+### Translation Manager page with source, locale, file, and filter selectors in the no-results state
+
+![Translation Manager page with source, locale, file, and filter selectors in the no-results state](screenshots/translation-manager-page-empty-state.png)
+
+- Surface: admin · Target: /admin/translation-manager.
+- Documents: An administrator filters the current translation file to a state with no matching rows and still sees the source, locale, file, and filter controls.
+- Capture notes: Capture after installing only the core Capell stack and capell-app/translation-manager, with package_paths restricted to [] in the disposable harness so unrelated local package repositories do not appear as sources.
+
+### Translation comparison grid with source strings, editable target strings, statuses, and entry selection
+
+![Translation comparison grid with source strings, editable target strings, statuses, and entry selection](screenshots/translation-manager-comparison-grid.png)
+
+- Surface: admin · Target: /admin/translation-manager.
+- Documents: A translator reviews source strings beside editable target strings, status, and selection controls.
+- Capture notes: Seed the application source with an en file and a partial fr file so the grid shows missing and changed entries without relying on another package.
+
+### Create locale modal
+
+![Create locale modal](screenshots/translation-manager-create-locale-modal.png)
+
+- Surface: admin · Target: /admin/translation-manager.
+- Documents: A translator opens the Create locale action to add a new target locale.
+- Capture notes: Open the Create locale header action from /admin/translation-manager.
+
+### Duplicate locale modal
+
+![Duplicate locale modal](screenshots/translation-manager-duplicate-locale-modal.png)
+
+- Surface: admin · Target: /admin/translation-manager.
+- Documents: A translator opens the Duplicate locale action to copy strings from an existing locale.
+- Capture notes: Open the Duplicate locale header action from /admin/translation-manager after en and fr locales exist.
+
+### Translate selected action visible with AI translator support
+
+![Translate selected action visible with AI translator support](screenshots/translation-manager-ai-translate-selected.png)
+
+- Surface: admin · Target: /admin/translation-manager.
+- Documents: A translator runs or reviews the Translate selected action when an AI translator binding is available.
+- Capture notes: Requires an available TranslationAITranslator binding, typically through the optional AI Orchestrator integration.
+
 ## Technical Shape
 
 - Service providers: `Capell\TranslationManager\Providers\TranslationManagerServiceProvider`, `Capell\TranslationManager\Providers\AdminServiceProvider`.

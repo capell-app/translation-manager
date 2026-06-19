@@ -15,7 +15,10 @@
             "required": true,
             "notes": "Capture after installing only the core Capell stack and capell-app/translation-manager, with package_paths restricted to [] in the disposable harness so unrelated local package repositories do not appear as sources.",
             "useCase": "An administrator filters the current translation file to a state with no matching rows and still sees the source, locale, file, and filter controls.",
-            "screenshotPath": "packages/translation-manager/docs/screenshots/translation-manager-page-empty-state.png"
+            "screenshotPath": "packages/translation-manager/docs/screenshots/translation-manager-page-empty-state.png",
+            "covers": [
+                "packages/translation-manager/src/Filament/Pages/TranslationManagerPage.php"
+            ]
         },
         {
             "id": "translation-manager-comparison-grid",
