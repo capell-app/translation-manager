@@ -1,7 +1,3 @@
-# Translation Manager
-
-<!-- prettier-ignore-start -->
-
 ## What it does for you
 
 Translation Manager helps you run your site in more than one language. You add a locale, edit translations side by side, see which content still needs translating, and spot missing strings before launch.
@@ -28,10 +24,3 @@ Go to **Translation Manager** in the admin to add locales and edit translations.
 - See which pages still need **translating** with the **Missing** filter.
 - Edit a translation side by side with the original so nothing is lost.
 - Spot missing strings before you launch a new language.
-
----
-
-For how to use Translation Manager, see the [admin guide](admin-guide.md).
-For developers: see the [README](../README.md).
-
-<!-- prettier-ignore-end -->
