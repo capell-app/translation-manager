@@ -2,4 +2,4 @@
 
 declare(strict_types=1);
 
-pest()->group('translation-manager')->in(__DIR__);
+pest()->group('translation-manager')->in('.');
