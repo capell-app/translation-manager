@@ -2,7 +2,7 @@
 
 <!-- prettier-ignore-start -->
 
-## What This Plugin Adds
+## What This Extension Adds
 
 Translation Manager is an **Available**, **No schema impact** Capell package in the **Capell Admin** product group. It ships as `capell-app/translation-manager` and extends these surfaces: admin.
 
