@@ -54,18 +54,23 @@ final class ConfigTranslationSourceResolver implements TranslationSourceResolver
         $path = $config['path'] ?? null;
         $sourcePath = is_string($path) && $path !== '' ? $path : lang_path();
         $key = $config['key'] ?? 'app';
-        $label = $config['label'] ?? 'Application';
+        $label = $config['label'] ?? $this->defaultAppSourceLabel();
         $writable = $config['writable'] ?? true;
 
         return new TranslationSourceData(
             key: is_string($key) ? $key : 'app',
-            label: is_string($label) ? $label : 'Application',
+            label: is_string($label) ? $label : $this->defaultAppSourceLabel(),
             sourcePath: $sourcePath,
             overridePath: $sourcePath,
             namespace: null,
             type: 'app',
             sourceWritable: is_bool($writable) ? $writable : true,
         );
+    }
+
+    private function defaultAppSourceLabel(): string
+    {
+        return (string) __('capell-translation-manager::package.application_source');
     }
 
     /**
