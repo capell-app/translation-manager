@@ -109,6 +109,26 @@ it('discovers configured application and vendor translation sources', function (
         ->toBe('vendor-package');
 });
 
+it('uses translated default application source labels', function (): void {
+    $temporaryRoot = storage_path('framework/testing/translation-manager-' . Str::random(8));
+    $appPath = $temporaryRoot . '/app-lang';
+
+    File::ensureDirectoryExists($appPath);
+
+    config([
+        'capell-translation-manager.app_source' => [
+            'label' => [],
+            'path' => $appPath,
+        ],
+        'capell-translation-manager.package_paths' => [],
+        'capell-translation-manager.vendor_namespaces' => [],
+    ]);
+
+    $source = (new ConfigTranslationSourceResolver)->source('app');
+
+    expect($source->label)->toBe(__('capell-translation-manager::package.application_source'));
+});
+
 it('exposes translation manager AI module metadata and health compatibility', function (): void {
     $module = new TranslationManagerAIOrchestratorModule;
     $capabilities = $module->capabilities();

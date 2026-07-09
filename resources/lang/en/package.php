@@ -6,6 +6,7 @@ return [
     'ai_unavailable' => 'AI translation is not available.',
     'accept_suggestion' => 'Accept',
     'ai_suggestion' => 'AI suggestion',
+    'application_source' => 'Application',
     'create_locale' => 'Create locale',
     'create_locale_heading' => 'Create a new locale',
     'description' => 'Translation Manager provides a file-based Filament editor for Laravel language files with side-by-side locale editing, missing and stale key checks, optional reviewed AI drafting, and safe package override writes.',
