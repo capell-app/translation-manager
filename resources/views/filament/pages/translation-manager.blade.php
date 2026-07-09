@@ -128,14 +128,12 @@
                                         <div
                                             class="text-xs text-gray-500 dark:text-gray-400"
                                         >
-                                            {{ trans_choice('capell-translation-manager::package.readiness_files', $readiness['fileCount'], ['count' => $readiness['fileCount']]) }}
-                                            ·
-                                            {{ trans_choice('capell-translation-manager::package.readiness_entries', $readiness['entryCount'], ['count' => $readiness['entryCount']]) }}
+                                            {{ trans_choice('capell-translation-manager::package.readiness_files', $readiness['fileCount'], ['count' => $readiness['fileCount']]) }} · {{ trans_choice('capell-translation-manager::package.readiness_entries', $readiness['entryCount'], ['count' => $readiness['entryCount']]) }}
                                         </div>
                                     </div>
 
                                     <span
-                                        @class([
+                                        @class ([
                                             'rounded-full px-2 py-1 text-xs font-medium',
                                             'bg-success-50 text-success-700 dark:bg-success-400/10 dark:text-success-300' => $readiness['ready'],
                                             'bg-warning-50 text-warning-700 dark:bg-warning-400/10 dark:text-warning-300' => ! $readiness['ready'],

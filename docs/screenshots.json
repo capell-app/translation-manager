@@ -64,6 +64,54 @@
             "notes": "Requires an available TranslationAITranslator binding, typically through the optional AI Orchestrator integration.",
             "useCase": "A translator runs or reviews the Translate selected action when an AI translator binding is available.",
             "screenshotPath": "packages/translation-manager/docs/screenshots/translation-manager-ai-translate-selected.png"
+        },
+        {
+            "id": "translation-manager-dirty-and-missing-review",
+            "title": "Dirty and missing translation review state.",
+            "package": "translation-manager",
+            "surface": "admin",
+            "targetType": "admin-route",
+            "target": "/admin/translation-manager",
+            "required": false,
+            "notes": "Seed a source locale update after a target locale was translated so the grid shows both missing entries and stale/dirty target strings.",
+            "useCase": "A translator prioritises rows where source copy has changed or target copy has not been supplied yet.",
+            "screenshotPath": "packages/translation-manager/docs/screenshots/translation-manager-dirty-and-missing-review.png"
+        },
+        {
+            "id": "translation-manager-import-export-actions",
+            "title": "Translation import and export actions.",
+            "package": "translation-manager",
+            "surface": "admin",
+            "targetType": "admin-action-modal",
+            "target": "/admin/translation-manager",
+            "required": false,
+            "notes": "Open the CSV/PO/XLIFF import or export action with en and fr locales seeded, showing format selection and source/target locale controls.",
+            "useCase": "A localisation manager moves translation work through external CAT tools and back into Capell.",
+            "screenshotPath": "packages/translation-manager/docs/screenshots/translation-manager-import-export-actions.png"
+        },
+        {
+            "id": "translation-manager-ai-suggestion-review",
+            "title": "AI translation suggestion review.",
+            "package": "translation-manager",
+            "surface": "admin",
+            "targetType": "admin-action-modal",
+            "target": "/admin/translation-manager",
+            "required": false,
+            "notes": "Requires TranslationAITranslator or AI Orchestrator integration. Capture generated suggestions before they are accepted into editable target strings.",
+            "useCase": "A translator reviews AI-assisted copy and keeps human approval in the workflow.",
+            "screenshotPath": "packages/translation-manager/docs/screenshots/translation-manager-ai-suggestion-review.png"
+        },
+        {
+            "id": "translation-manager-locale-publish-readiness",
+            "title": "Locale publish readiness summary.",
+            "package": "translation-manager",
+            "surface": "admin",
+            "targetType": "admin-route",
+            "target": "/admin/translation-manager",
+            "required": false,
+            "notes": "Seed complete, missing, and stale locale states so the readiness summary shows which locales can be published safely.",
+            "useCase": "An editor checks whether a locale is ready to ship before making translated content visible.",
+            "screenshotPath": "packages/translation-manager/docs/screenshots/translation-manager-locale-publish-readiness.png"
         }
     ]
 }
