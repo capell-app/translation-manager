@@ -7,11 +7,13 @@ namespace Capell\TranslationManager\Filament\Pages;
 use BackedEnum;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\TranslationManager\Actions\BuildLocalePublishReadinessAction;
+use Capell\TranslationManager\Actions\BuildTranslationReadinessMatrixAction;
 use Capell\TranslationManager\Actions\CreateLocaleFilesAction;
 use Capell\TranslationManager\Actions\DuplicateLocaleAction;
 use Capell\TranslationManager\Actions\ExportTranslationEntriesToCsvAction;
 use Capell\TranslationManager\Actions\ExportTranslationEntriesToPoAction;
 use Capell\TranslationManager\Actions\ExportTranslationEntriesToXliffAction;
+use Capell\TranslationManager\Actions\FilterTranslationEntriesAction;
 use Capell\TranslationManager\Actions\ImportTranslationEntriesFromCsvAction;
 use Capell\TranslationManager\Actions\ImportTranslationEntriesFromPoAction;
 use Capell\TranslationManager\Actions\ImportTranslationEntriesFromXliffAction;
@@ -23,7 +25,6 @@ use Capell\TranslationManager\Actions\SaveTranslationEntriesAction;
 use Capell\TranslationManager\Actions\ScanMissingTranslationKeysAction;
 use Capell\TranslationManager\Actions\TranslateSelectedEntriesAction;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
-use Capell\TranslationManager\Data\LocalePublishReadinessData;
 use Capell\TranslationManager\Data\LocaleSummaryData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Data\TranslationFileData;
@@ -221,21 +222,7 @@ final class TranslationManagerPage extends Page
      */
     public function filteredEntries(): array
     {
-        if ($this->filter === 'all') {
-            return $this->entries;
-        }
-
-        if ($this->filter === 'needs_attention') {
-            return collect($this->entries)
-                ->filter(fn (array $entry): bool => in_array($entry['status'], ['missing', 'stale', 'changed'], true))
-                ->values()
-                ->all();
-        }
-
-        return collect($this->entries)
-            ->filter(fn (array $entry): bool => $entry['status'] === $this->filter)
-            ->values()
-            ->all();
+        return FilterTranslationEntriesAction::run($this->entries, $this->filter);
     }
 
     public function aiAvailable(): bool
@@ -455,41 +442,11 @@ final class TranslationManagerPage extends Page
 
     private function refreshReadinessMatrix(): void
     {
-        if ($this->sourceKey === null || $this->locales === []) {
-            $this->readinessMatrix = [];
-
-            return;
-        }
-
-        $this->readinessMatrix = collect($this->locales)
-            ->pluck('locale')
-            ->filter(fn (string $locale): bool => $locale !== $this->sourceLocale)
-            ->map(fn (string $locale): array => $this->readinessRow(BuildLocalePublishReadinessAction::run(
-                $this->sourceKey,
-                $this->sourceLocale,
-                $locale,
-            )))
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @return array{locale: string, fileCount: int, entryCount: int, missing: int, stale: int, changed: int, same: int, extra: int, fallback: int, ready: bool}
-     */
-    private function readinessRow(LocalePublishReadinessData $readiness): array
-    {
-        return [
-            'locale' => $readiness->targetLocale,
-            'fileCount' => $readiness->fileCount,
-            'entryCount' => $readiness->entryCount,
-            'missing' => $readiness->statusCounts['missing'] ?? 0,
-            'stale' => $readiness->statusCounts['stale'] ?? 0,
-            'changed' => $readiness->statusCounts['changed'] ?? 0,
-            'same' => $readiness->statusCounts['same'] ?? 0,
-            'extra' => $readiness->statusCounts['extra'] ?? 0,
-            'fallback' => $readiness->statusCounts['fallback'] ?? 0,
-            'ready' => $readiness->ready,
-        ];
+        $this->readinessMatrix = BuildTranslationReadinessMatrixAction::run(
+            $this->sourceKey,
+            $this->sourceLocale,
+            $this->locales,
+        );
     }
 
     private function exportCurrentFile(string $format): ?StreamedResponse
