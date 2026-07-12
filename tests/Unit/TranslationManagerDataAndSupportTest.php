@@ -139,7 +139,7 @@ it('exposes translation manager AI module metadata and health compatibility', fu
         ->and($capabilities[0]->key)->toBe('translate-selected-keys')
         ->and($capabilities[0]->actionClass)->toBe(DraftSelectedTranslationsAction::class)
         ->and($capabilities[0]->approvalLevel)->toBe(AIOrchestratorApprovalLevel::Draft)
-        ->and(TranslationManagerHealthCheck::compatibleCapellApiVersion())->toBe('^0.0');
+        ->and(TranslationManagerHealthCheck::compatibleCapellApiVersion())->toBe('^4.0');
 });
 
 it('reports real translation manager health diagnostics', function (): void {
