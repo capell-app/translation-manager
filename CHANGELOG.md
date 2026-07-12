@@ -12,4 +12,4 @@ All notable changes to `capell-app/translation-manager` will be documented in th
 - Replaced the API-version-only health check with diagnostics for the admin surface, service bindings, and required configuration.
 - Added tests for the health diagnostics and updated manifest copy expectations.
 
-- Prepared package metadata and documentation for ongoing Capell 4.x package work.
+- Prepared package metadata and documentation for ongoing Capell 0.0.x package work.
