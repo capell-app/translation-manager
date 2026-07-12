@@ -1,0 +1,195 @@
+{
+    "manifest-version": 3,
+    "name": "capell-app/translation-manager",
+    "slug": "translation-manager",
+    "displayName": "Translation Manager",
+    "kind": "package",
+    "capellApiVersion": "^0.0.1",
+    "version": "0.0.x-dev",
+    "description": "Translation Manager gives admins a file-based editor for Laravel language files in your Capell app and installed packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys, and create or duplicate locale files from the admin workflow. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Pair it with AI Orchestrator for reviewed translation drafts and with SEO Suite when multilingual search teams need translation coverage alongside SEO and AI-discovery workflows.",
+    "product": {
+        "group": "Capell Admin",
+        "tier": "premium",
+        "bundle": "admin"
+    },
+    "namespace": "Capell\\TranslationManager",
+    "surfaces": ["admin"],
+    "dependencies": {
+        "requires": ["capell-app/admin", "capell-app/core"],
+        "supports": ["capell-app/ai-orchestrator", "capell-app/seo-suite"],
+        "conflicts": []
+    },
+    "providers": {
+        "metadata": [],
+        "install": [],
+        "runtime": [
+            "Capell\\TranslationManager\\Providers\\TranslationManagerServiceProvider"
+        ],
+        "admin": [
+            "Capell\\TranslationManager\\Providers\\AdminServiceProvider"
+        ],
+        "frontend": []
+    },
+    "contributes": [
+        {
+            "type": "admin-page",
+            "class": "Capell\\TranslationManager\\Manifest\\TranslationManagerPageContribution",
+            "pageClass": "Capell\\TranslationManager\\Filament\\Pages\\TranslationManagerPage",
+            "labelKey": "capell-translation-manager::package.navigation_label"
+        }
+    ],
+    "database": {
+        "migrations": false,
+        "settings": false,
+        "requiredTables": []
+    },
+    "commands": {
+        "install": null,
+        "setup": null,
+        "demo": null,
+        "doctor": null
+    },
+    "actions": {
+        "buildLocalePublishReadiness": "Capell\\TranslationManager\\Actions\\BuildLocalePublishReadinessAction",
+        "buildTranslationMemorySuggestions": "Capell\\TranslationManager\\Actions\\BuildTranslationMemorySuggestionsAction",
+        "createLocaleFiles": "Capell\\TranslationManager\\Actions\\CreateLocaleFilesAction",
+        "duplicateLocale": "Capell\\TranslationManager\\Actions\\DuplicateLocaleAction",
+        "exportTranslationEntriesToCsv": "Capell\\TranslationManager\\Actions\\ExportTranslationEntriesToCsvAction",
+        "exportTranslationEntriesToPo": "Capell\\TranslationManager\\Actions\\ExportTranslationEntriesToPoAction",
+        "exportTranslationEntriesToXliff": "Capell\\TranslationManager\\Actions\\ExportTranslationEntriesToXliffAction",
+        "importTranslationEntriesFromCsv": "Capell\\TranslationManager\\Actions\\ImportTranslationEntriesFromCsvAction",
+        "importTranslationEntriesFromPo": "Capell\\TranslationManager\\Actions\\ImportTranslationEntriesFromPoAction",
+        "importTranslationEntriesFromXliff": "Capell\\TranslationManager\\Actions\\ImportTranslationEntriesFromXliffAction",
+        "listInstalledLocales": "Capell\\TranslationManager\\Actions\\ListInstalledLocalesAction",
+        "listTranslationFiles": "Capell\\TranslationManager\\Actions\\ListTranslationFilesAction",
+        "listTranslationSources": "Capell\\TranslationManager\\Actions\\ListTranslationSourcesAction",
+        "loadTranslationComparison": "Capell\\TranslationManager\\Actions\\LoadTranslationComparisonAction",
+        "saveTranslationEntries": "Capell\\TranslationManager\\Actions\\SaveTranslationEntriesAction",
+        "scanMissingTranslationKeys": "Capell\\TranslationManager\\Actions\\ScanMissingTranslationKeysAction",
+        "translateSelectedEntries": "Capell\\TranslationManager\\Actions\\TranslateSelectedEntriesAction"
+    },
+    "settings": [],
+    "permissions": [],
+    "capabilities": [
+        "translation.ai.translate-selected",
+        "translation.files.csv-import-export",
+        "translation.files.browse",
+        "translation.files.code-missing-key-scan",
+        "translation.files.duplicate",
+        "translation.files.fallback-awareness",
+        "translation.files.glossary-validation",
+        "translation.files.integrity-validation",
+        "translation.files.override-merge",
+        "translation.files.publish-readiness",
+        "translation.files.readiness-dashboard",
+        "translation.files.po-import-export",
+        "translation.files.stale-detection",
+        "translation.files.translation-memory",
+        "translation.files.xliff-import-export",
+        "translation.files.write"
+    ],
+    "security": {
+        "riskTier": "sensitive",
+        "publicSurface": {
+            "routeNames": [],
+            "auth": "none",
+            "csrfExemptRoutes": [],
+            "signedRoutes": [],
+            "tokenizedRoutes": [],
+            "webhookRoutes": [],
+            "throttledRoutes": []
+        },
+        "sensitiveData": {
+            "encryptedFields": [],
+            "hashedTokenFields": [],
+            "redactedOutputClasses": [],
+            "plaintextJustifications": []
+        },
+        "publicOutput": {
+            "cacheSafe": true,
+            "forbidAuthoringSurface": true,
+            "forbidSecrets": true,
+            "forbidPublicBladeQueries": true
+        },
+        "externalHttpClients": {
+            "requiresTimeouts": false,
+            "requiresSecretRedaction": false,
+            "clients": []
+        },
+        "adminSurface": {
+            "authorization": "panel-auth",
+            "permissions": []
+        }
+    },
+    "performance": {
+        "frontendRenderBudgetMs": 0,
+        "adminQueryBudget": 0,
+        "filesystemScanBudget": {
+            "sourceDiscoveryMemoized": true,
+            "pageReadinessMatrix": "locales x files"
+        },
+        "cacheTags": [],
+        "cacheSafety": {
+            "cacheable": false,
+            "variesBy": [],
+            "sensitiveOutput": false,
+            "invalidationSources": [],
+            "queueInvalidation": false
+        }
+    },
+    "healthChecks": [
+        {
+            "key": "translation-manager.package-health",
+            "label": "Translation Manager diagnostics verify the admin surface, service bindings, and safe filesystem configuration.",
+            "class": "Capell\\TranslationManager\\Health\\TranslationManagerHealthCheck",
+            "severity": "critical",
+            "surface": "admin"
+        }
+    ],
+    "commercial": {
+        "proposedLicense": "paid",
+        "requestedCertification": "first-party",
+        "supportPolicy": "priority",
+        "privateDocsRequested": true
+    },
+    "marketplace": {
+        "summary": "Manage Capell language files from one Filament page with side-by-side locale editing, missing and stale key checks, safe override writes, and optional reviewed AI drafting.",
+        "description": "Translation Manager gives admins a file-based editor for Laravel language files in your Capell app and installed packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys, and create or duplicate locale files from the admin workflow. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Pair it with AI Orchestrator for reviewed translation drafts and with SEO Suite when multilingual search teams need translation coverage alongside SEO and AI-discovery workflows.",
+        "screenshots": [
+            {
+                "path": "docs/assets/marketplace/extension-card.jpg",
+                "alt": "Translation Manager extension preview image",
+                "caption": "Translation Manager extension preview"
+            },
+            {
+                "path": "docs/screenshots/translation-manager-page-empty-state.png",
+                "alt": "Translation Manager empty state with source and filter controls",
+                "caption": "Translation Manager empty state"
+            },
+            {
+                "path": "docs/screenshots/translation-manager-comparison-grid.png",
+                "alt": "Translation Manager comparison grid with source and target values",
+                "caption": "Translation comparison grid"
+            },
+            {
+                "path": "docs/screenshots/translation-manager-create-locale-modal.png",
+                "alt": "Translation Manager create locale workflow",
+                "caption": "Create locale workflow"
+            },
+            {
+                "path": "docs/screenshots/translation-manager-duplicate-locale-modal.png",
+                "alt": "Translation Manager duplicate locale workflow",
+                "caption": "Duplicate locale workflow"
+            },
+            {
+                "path": "docs/screenshots/translation-manager-ai-translate-selected.png",
+                "alt": "Translation Manager AI translate selected review workflow",
+                "caption": "AI translate selected review"
+            }
+        ],
+        "categories": ["admin"]
+    },
+    "contributionTraceability": {
+        "deferredContributions": []
+    }
+}
