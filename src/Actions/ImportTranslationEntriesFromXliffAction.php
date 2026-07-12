@@ -17,8 +17,14 @@ final class ImportTranslationEntriesFromXliffAction
 
     public function handle(string $sourceKey, string $fileKey, string $locale, string $contents): TranslationCsvImportResultData
     {
+        throw_if(
+            preg_match('/<!DOCTYPE(?:\\s|>)/i', $contents) === 1,
+            InvalidArgumentException::class,
+            'Translation XLIFF must not declare a document type.',
+        );
+
         $document = new DOMDocument;
-        $loaded = @$document->loadXML($contents);
+        $loaded = @$document->loadXML($contents, LIBXML_NONET);
 
         throw_if(! $loaded, InvalidArgumentException::class, 'Translation XLIFF must be valid XML.');
 

@@ -388,6 +388,30 @@ XML;
         ->and($values['nested']['body'])->toBe('Bienvenue');
 });
 
+it('rejects XLIFF documents which declare external entities', function (): void {
+    $secretPath = $this->translationBasePath . '/secret.txt';
+    File::put($secretPath, 'external-entity-secret');
+
+    $xliff = <<<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xliff [<!ENTITY secret SYSTEM "file://{$secretPath}">]>
+<xliff version="1.2">
+  <file source-language="en" target-language="fr" datatype="plaintext" original="app:php:messages">
+    <body>
+      <trans-unit id="title" resname="title"><source>Hello</source><target>&secret;</target></trans-unit>
+    </body>
+  </file>
+</xliff>
+XML;
+
+    expect(fn (): TranslationCsvImportResultData => ImportTranslationEntriesFromXliffAction::run('app', 'php:messages', 'fr', $xliff))
+        ->toThrow(InvalidArgumentException::class, 'Translation XLIFF must not declare a document type.');
+
+    $values = require $this->appLanguagePath . '/fr/messages.php';
+
+    expect($values['title'])->toBe('Bonjour');
+});
+
 it('exports and imports target translation values as PO gettext', function (): void {
     $po = ExportTranslationEntriesToPoAction::run('app', 'php:messages', 'en', 'fr');
 
