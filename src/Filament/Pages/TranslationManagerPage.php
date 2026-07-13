@@ -56,13 +56,13 @@ final class TranslationManagerPage extends Page
     /** @var array<int, array{key: string, label: string}> */
     public array $sources = [];
 
-    /** @var array<int, array{locale: string, fileCount: int, sourceAvailable: bool, overrideAvailable: bool}> */
+    /** @var list<array{locale: string, fileCount: int, sourceAvailable: bool, overrideAvailable: bool}> */
     public array $locales = [];
 
     /** @var array<int, array{key: string, label: string, type: string, relativePath: string}> */
     public array $files = [];
 
-    /** @var array<int, array{index: int, key: string, sourceValue: string|null, targetValue: string|null, status: string, editable: bool}> */
+    /** @var list<array{index: int, key: string, sourceValue: string|null, targetValue: string|null, status: string, editable: bool}> */
     public array $entries = [];
 
     /** @var array<int, array{locale: string, fileCount: int, entryCount: int, missing: int, stale: int, changed: int, same: int, extra: int, fallback: int, ready: bool}> */
@@ -427,7 +427,7 @@ final class TranslationManagerPage extends Page
             return;
         }
 
-        $this->entries = collect(resolve(LoadTranslationComparisonAction::class)->handle($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale))
+        $this->entries = array_values(collect(resolve(LoadTranslationComparisonAction::class)->handle($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale))
             ->map(fn (TranslationEntryData $entry, int $index): array => [
                 'index' => $index,
                 'key' => $entry->key,
@@ -437,7 +437,7 @@ final class TranslationManagerPage extends Page
                 'editable' => $entry->editable,
             ])
             ->values()
-            ->all();
+            ->all());
     }
 
     private function refreshReadinessMatrix(): void

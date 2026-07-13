@@ -9,6 +9,9 @@ use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Data\TranslationFileData;
 use Lorisleiva\Actions\Concerns\AsObject;
 
+/**
+ * @method static LocalePublishReadinessData run(string $sourceKey, string $sourceLocale, string $targetLocale)
+ */
 final class BuildLocalePublishReadinessAction
 {
     use AsObject;

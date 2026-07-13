@@ -11,6 +11,9 @@ use DOMXPath;
 use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsObject;
 
+/**
+ * @method static TranslationCsvImportResultData run(string $sourceKey, string $fileKey, string $locale, string $contents)
+ */
 final class ImportTranslationEntriesFromXliffAction
 {
     use AsObject;

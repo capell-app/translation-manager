@@ -19,6 +19,7 @@ use Capell\TranslationManager\Actions\LoadTranslationComparisonAction;
 use Capell\TranslationManager\Actions\SaveTranslationEntriesAction;
 use Capell\TranslationManager\Actions\ScanMissingTranslationKeysAction;
 use Capell\TranslationManager\Contracts\TranslationFileStore;
+use Capell\TranslationManager\Data\TranslationCsvImportResultData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Support\FileTranslationFileStore;
 use Capell\TranslationManager\Support\LocaleValidator;
