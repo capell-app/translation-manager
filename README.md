@@ -2,7 +2,7 @@
 
 <!-- prettier-ignore-start -->
 
-## What This Extension Adds
+## What This Plugin Adds
 
 Translation Manager is an **Available**, **No schema impact** Capell package in the **Capell Admin** product group. It ships as `capell-app/translation-manager` and extends these surfaces: admin.
 
@@ -34,13 +34,17 @@ Screenshot contract: `docs/screenshots.json`.
 - Create locale modal (admin, required).
 - Duplicate locale modal (admin, required).
 - Translate selected action visible with AI translator support (admin, optional).
+- Dirty and missing translation review state (admin, optional).
+- Translation import and export actions (admin, optional).
+- AI translation suggestion review (admin, optional).
+- Locale publish readiness summary (admin, optional).
 
 ## Technical Shape
 
 - Service providers: `Capell\TranslationManager\Providers\TranslationManagerServiceProvider`, `Capell\TranslationManager\Providers\AdminServiceProvider`.
 - Config files: `packages/translation-manager/config/capell-translation-manager.php`.
 - Filament classes: `TranslationManagerPage`.
-- Actions: `BuildLocalePublishReadinessAction`, `BuildTranslationMemorySuggestionsAction`, `CreateLocaleFilesAction`, `DuplicateLocaleAction`, `ExportTranslationEntriesToCsvAction`, `ExportTranslationEntriesToPoAction`, `ExportTranslationEntriesToXliffAction`, `ImportTranslationEntriesFromCsvAction`, `ImportTranslationEntriesFromPoAction`, `ImportTranslationEntriesFromXliffAction`, `ListInstalledLocalesAction`, `ListTranslationFilesAction`, `and 5 more`.
+- Actions: `BuildLocalePublishReadinessAction`, `BuildTranslationMemorySuggestionsAction`, `BuildTranslationReadinessMatrixAction`, `CreateLocaleFilesAction`, `DuplicateLocaleAction`, `ExportTranslationEntriesToCsvAction`, `ExportTranslationEntriesToPoAction`, `ExportTranslationEntriesToXliffAction`, `FilterTranslationEntriesAction`, `ImportTranslationEntriesFromCsvAction`, `ImportTranslationEntriesFromPoAction`, `ImportTranslationEntriesFromXliffAction`, `and 7 more`.
 - Data objects: `AITranslationSuggestionData`, `LocalePublishReadinessData`, `LocaleSummaryData`, `MissingTranslationKeyData`, `TranslationCsvImportResultData`, `TranslationEntryData`, `TranslationFileData`, `TranslationSourceData`, `TranslationWriteData`.
 - Manifest contributions: `admin-page: Capell\TranslationManager\Manifest\TranslationManagerPageContribution`.
 - Health checks: `Capell\TranslationManager\Health\TranslationManagerHealthCheck`.
