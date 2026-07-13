@@ -4,7 +4,7 @@
 
 ## What This Plugin Adds
 
-Translation Manager is an **Available**, **No schema impact** Capell package in the **Capell Admin** product group. It ships as `capell-app/translation-manager` and extends these surfaces: admin.
+Translation Manager is an **Available**, **No schema impact** Capell package in the **Capell Publishing** product group. It ships as `capell-app/translation-manager` and extends these surfaces: admin.
 
 Translation Manager gives admins a file-based editor for Laravel language files in your Capell app and installed packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys, and create or duplicate locale files from the admin workflow. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Pair it with AI Orchestrator for reviewed translation drafts and with SEO Suite when multilingual search teams need translation coverage alongside SEO and AI-discovery workflows.
 
@@ -14,7 +14,7 @@ Status details:
 
 - Status: Available
 - Tier: premium
-- Bundle: admin
+- Bundle: publishing
 - Composer package: `capell-app/translation-manager`
 - Namespace: `Capell\TranslationManager`
 - Theme key: not applicable
