@@ -6,9 +6,11 @@
 
 Translation Manager is an **Available**, **No schema impact** Capell package in the **Capell Publishing** product group. It ships as `capell-app/translation-manager` and extends these surfaces: admin.
 
-Translation Manager gives admins a file-based editor for Laravel language files in your Capell app and installed packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys, and create or duplicate locale files from the admin workflow. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Pair it with AI Orchestrator for reviewed translation drafts and with SEO Suite when multilingual search teams need translation coverage alongside SEO and AI-discovery workflows.
+Translation Manager adds an admin workspace for comparing Laravel locales, finding missing or stale entries, and creating, duplicating, importing, exporting, or saving translation files. It works through file storage rather than adding translation tables.
 
-After install, admins get package-owned management or reporting surfaces inside Capell.
+Administrators can compare locale coverage, edit entries, and manage locale files from one Filament page.
+
+Evidence: [`src/Filament/Pages/TranslationManagerPage.php`](src/Filament/Pages/TranslationManagerPage.php), [`src/Actions/LoadTranslationComparisonAction.php`](src/Actions/LoadTranslationComparisonAction.php), [`src/Actions/SaveTranslationEntriesAction.php`](src/Actions/SaveTranslationEntriesAction.php), [`src/Support/FileTranslationFileStore.php`](src/Support/FileTranslationFileStore.php), [`src/Actions/CreateLocaleFilesAction.php`](src/Actions/CreateLocaleFilesAction.php), [`src/Actions/DuplicateLocaleAction.php`](src/Actions/DuplicateLocaleAction.php), [`tests/Feature/Filament/TranslationManagerPageTest.php`](tests/Feature/Filament/TranslationManagerPageTest.php).
 
 Status details:
 
@@ -21,9 +23,11 @@ Status details:
 
 ## Why It Matters
 
-**For developers:** The package gives developers package-owned service providers, Actions, Data objects, Filament classes, and Blade views instead of pushing this behaviour into core or application code.
+**For developers:** A TranslationFileStore contract separates file access from focused comparison and write Actions, so storage behavior remains testable.
 
-**For teams:** Manage Capell language files from one Filament page with side-by-side locale editing, missing and stale key checks, safe override writes, and optional reviewed AI drafting.
+**For teams:** Content and localization teams can close locale gaps while keeping changes in normal Laravel language files and package overrides.
+
+Evidence: [`src/Contracts/TranslationFileStore.php`](src/Contracts/TranslationFileStore.php), [`src/Support/FileTranslationFileStore.php`](src/Support/FileTranslationFileStore.php), [`src/Actions/LoadTranslationComparisonAction.php`](src/Actions/LoadTranslationComparisonAction.php), [`tests/Feature/TranslationManagerActionsTest.php`](tests/Feature/TranslationManagerActionsTest.php), [`src/Filament/Pages/TranslationManagerPage.php`](src/Filament/Pages/TranslationManagerPage.php), [`tests/Feature/Filament/TranslationManagerPageTest.php`](tests/Feature/Filament/TranslationManagerPageTest.php).
 
 ## Screens And Workflow
 
@@ -48,33 +52,36 @@ Screenshot contract: `docs/screenshots.json`.
 - Service providers: `Capell\TranslationManager\Providers\TranslationManagerServiceProvider`, `Capell\TranslationManager\Providers\AdminServiceProvider`.
 - Config files: `packages/translation-manager/config/capell-translation-manager.php`.
 - Filament classes: `TranslationManagerPage`.
+- Extension contracts: `TranslationAITranslator`, `TranslationFileStore`, `TranslationSourceResolver`.
 - Actions: `BuildLocalePublishReadinessAction`, `BuildTranslationMemorySuggestionsAction`, `BuildTranslationReadinessMatrixAction`, `CreateLocaleFilesAction`, `DuplicateLocaleAction`, `ExportTranslationEntriesToCsvAction`, `ExportTranslationEntriesToPoAction`, `ExportTranslationEntriesToXliffAction`, `FilterTranslationEntriesAction`, `ImportTranslationEntriesFromCsvAction`, `ImportTranslationEntriesFromPoAction`, `ImportTranslationEntriesFromXliffAction`, `and 7 more`.
 - Data objects: `AITranslationSuggestionData`, `LocalePublishReadinessData`, `LocaleSummaryData`, `MissingTranslationKeyData`, `TranslationCsvImportResultData`, `TranslationEntryData`, `TranslationFileData`, `TranslationSourceData`, `TranslationWriteData`.
+- Manifest action API: `buildLocalePublishReadiness: Capell\TranslationManager\Actions\BuildLocalePublishReadinessAction`, `buildTranslationMemorySuggestions: Capell\TranslationManager\Actions\BuildTranslationMemorySuggestionsAction`, `createLocaleFiles: Capell\TranslationManager\Actions\CreateLocaleFilesAction`, `duplicateLocale: Capell\TranslationManager\Actions\DuplicateLocaleAction`, `exportTranslationEntriesToCsv: Capell\TranslationManager\Actions\ExportTranslationEntriesToCsvAction`, `exportTranslationEntriesToPo: Capell\TranslationManager\Actions\ExportTranslationEntriesToPoAction`, `exportTranslationEntriesToXliff: Capell\TranslationManager\Actions\ExportTranslationEntriesToXliffAction`, `importTranslationEntriesFromCsv: Capell\TranslationManager\Actions\ImportTranslationEntriesFromCsvAction`, `importTranslationEntriesFromPo: Capell\TranslationManager\Actions\ImportTranslationEntriesFromPoAction`, `importTranslationEntriesFromXliff: Capell\TranslationManager\Actions\ImportTranslationEntriesFromXliffAction`, `listInstalledLocales: Capell\TranslationManager\Actions\ListInstalledLocalesAction`, `listTranslationFiles: Capell\TranslationManager\Actions\ListTranslationFilesAction`, `and 5 more`.
 - Manifest contributions: `admin-page: Capell\TranslationManager\Manifest\TranslationManagerPageContribution`.
 - Health checks: `Capell\TranslationManager\Health\TranslationManagerHealthCheck`.
 - Blade views: `packages/translation-manager/resources/views/filament/pages/translation-manager.blade.php`.
 
 ## Data Model
 
-This package has no schema impact. It does not declare package-owned migrations or required tables.
-
-Docs gap: document extension points here if the package delegates persistence to a host package.
+This package has no schema impact. It extends Capell through `admin-page` contributions instead of declaring package-owned tables.
 
 ## Install Impact
 
-- Admin navigation: adds package-owned Filament classes when registered.
+- Required packages: `capell-app/admin`, `capell-app/core`.
+- Admin navigation: declares `admin-page: TranslationManagerPageContribution`; each Filament page or resource controls its own navigation visibility.
+- Admin/editor extensions: none declared.
 - Permissions: none declared in `capell.json`.
-- Public routes: none detected in package route files.
+- Public routes: none declared.
 - Database changes: no package migrations declared.
+- Config: `config/capell-translation-manager.php`.
 - Settings: no package settings declared.
-- Queues or schedules: none detected in standard package paths.
+- Queues or schedules: none declared.
 - Cache tags: none declared.
 - Commands: none declared.
 
 ## Common Pitfalls
 
-- Verify the package is installed before expecting its provider, views, or extension contributions to run.
-- Keep `composer.json`, `composer.local.json`, `capell.json`, docs, screenshots, and tests aligned when the package surface changes.
+- Keep required Capell packages on compatible v4 releases: `capell-app/admin`, `capell-app/core`.
+- Review package configuration before production-like verification: `config/capell-translation-manager.php`.
 
 ## Troubleshooting
 
@@ -85,13 +92,16 @@ Docs gap: document extension points here if the package delegates persistence to
 ## Quick Start
 
 1. Install the package: `composer require capell-app/translation-manager`.
-2. Run the required setup: no package migrations are declared; clear cached config and routes if the host app uses caches.
-3. Open the related Capell admin surface and verify Translation Manager appears.
+2. Review `config/capell-translation-manager.php` before enabling the package.
+3. Open the Translation Manager page with source, locale, file, and filter selectors in the no-results state and confirm the admin workflow loads.
 
 ## Next Steps
 
 - [Package docs](docs/README.md)
 - [Overview](docs/overview.md)
+- [Admin guide](docs/admin-guide.md)
+- Configuration files: [`config/capell-translation-manager.php`](config/capell-translation-manager.php).
+- [Troubleshooting](#troubleshooting)
 - [Screenshot contract](docs/screenshots.json)
 - [Marketplace assets](docs/assets/marketplace/)
 - [Capell content language plan](../../docs/CONTENT_LANGUAGE_PLAN.md)

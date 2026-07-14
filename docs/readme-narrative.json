@@ -1,0 +1,39 @@
+{
+    "whatThisPluginAdds": {
+        "text": "Translation Manager adds an admin workspace for comparing Laravel locales, finding missing or stale entries, and creating, duplicating, importing, exporting, or saving translation files. It works through file storage rather than adding translation tables.",
+        "evidence": [
+            "src/Filament/Pages/TranslationManagerPage.php",
+            "src/Actions/LoadTranslationComparisonAction.php",
+            "src/Actions/SaveTranslationEntriesAction.php",
+            "src/Support/FileTranslationFileStore.php"
+        ]
+    },
+    "surfaceOutcome": {
+        "text": "Administrators can compare locale coverage, edit entries, and manage locale files from one Filament page.",
+        "evidence": [
+            "src/Filament/Pages/TranslationManagerPage.php",
+            "src/Actions/CreateLocaleFilesAction.php",
+            "src/Actions/DuplicateLocaleAction.php",
+            "tests/Feature/Filament/TranslationManagerPageTest.php"
+        ]
+    },
+    "whyItMatters": {
+        "developers": {
+            "text": "A TranslationFileStore contract separates file access from focused comparison and write Actions, so storage behavior remains testable.",
+            "evidence": [
+                "src/Contracts/TranslationFileStore.php",
+                "src/Support/FileTranslationFileStore.php",
+                "src/Actions/LoadTranslationComparisonAction.php",
+                "tests/Feature/TranslationManagerActionsTest.php"
+            ]
+        },
+        "teams": {
+            "text": "Content and localization teams can close locale gaps while keeping changes in normal Laravel language files and package overrides.",
+            "evidence": [
+                "src/Filament/Pages/TranslationManagerPage.php",
+                "src/Support/FileTranslationFileStore.php",
+                "tests/Feature/Filament/TranslationManagerPageTest.php"
+            ]
+        }
+    }
+}
