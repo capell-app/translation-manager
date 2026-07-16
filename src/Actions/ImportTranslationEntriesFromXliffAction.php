@@ -9,6 +9,7 @@ use DOMDocument;
 use DOMElement;
 use DOMXPath;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -16,6 +17,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class ImportTranslationEntriesFromXliffAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $sourceKey, string $fileKey, string $locale, string $contents): TranslationCsvImportResultData

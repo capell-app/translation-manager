@@ -7,6 +7,7 @@ namespace Capell\TranslationManager\Actions;
 use Capell\TranslationManager\Data\LocalePublishReadinessData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Data\TranslationFileData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -14,6 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class BuildLocalePublishReadinessAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $sourceKey, string $sourceLocale, string $targetLocale): LocalePublishReadinessData

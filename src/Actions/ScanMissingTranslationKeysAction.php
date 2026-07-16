@@ -9,11 +9,13 @@ use Capell\TranslationManager\Data\MissingTranslationKeyData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Data\TranslationFileData;
 use Illuminate\Filesystem\Filesystem;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use SplFileInfo;
 
 final class ScanMissingTranslationKeysAction
 {
+    use AsFake;
     use AsObject;
 
     /**

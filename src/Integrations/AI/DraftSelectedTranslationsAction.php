@@ -7,10 +7,12 @@ namespace Capell\TranslationManager\Integrations\AI;
 use Capell\AIOrchestrator\Data\AIOrchestratorRunData;
 use Capell\TranslationManager\Actions\TranslateSelectedEntriesAction;
 use Capell\TranslationManager\Data\TranslationEntryData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class DraftSelectedTranslationsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

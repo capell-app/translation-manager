@@ -6,10 +6,12 @@ namespace Capell\TranslationManager\Actions;
 
 use Capell\TranslationManager\Data\TranslationCsvImportResultData;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ImportTranslationEntriesFromPoAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $sourceKey, string $fileKey, string $locale, string $contents): TranslationCsvImportResultData

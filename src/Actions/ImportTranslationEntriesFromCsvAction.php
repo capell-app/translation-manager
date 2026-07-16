@@ -7,10 +7,12 @@ namespace Capell\TranslationManager\Actions;
 use Capell\TranslationManager\Contracts\TranslationFileStore;
 use Capell\TranslationManager\Contracts\TranslationSourceResolver;
 use Capell\TranslationManager\Data\TranslationCsvImportResultData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ImportTranslationEntriesFromCsvAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $sourceKey, string $fileKey, string $locale, string $contents): TranslationCsvImportResultData

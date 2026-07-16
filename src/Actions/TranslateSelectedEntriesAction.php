@@ -7,6 +7,7 @@ namespace Capell\TranslationManager\Actions;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
 use Capell\TranslationManager\Data\AITranslationSuggestionData;
 use Capell\TranslationManager\Data\TranslationEntryData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -14,6 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class TranslateSelectedEntriesAction
 {
+    use AsFake;
     use AsObject;
 
     /**

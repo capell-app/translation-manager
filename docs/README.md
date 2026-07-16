@@ -8,10 +8,11 @@ Start at the [package README](../README.md) when deciding whether to install thi
 
 | Doc                                               | Use it for                                                                         |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [Admin Guide](admin-guide.md)                     | Manage locale files, translations, and review workflows.                           |
 | [Overview](overview.md)                           | Package boundary, runtime surfaces, install notes, and first troubleshooting path. |
 | [Sources Stores And Ai](sources-stores-and-ai.md) | Focused package workflow, setup, troubleshooting, or implementation details.       |
 
-## Read Next
+## Next
 
 | Related doc                                         | Why                                                   |
 | --------------------------------------------------- | ----------------------------------------------------- |

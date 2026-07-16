@@ -40,14 +40,16 @@ This guide is for editors who translate content and owners deciding which langua
 
 1. Select the entries you want drafted.
 2. Use **Translate selected** to draft target values for them. This is available when an AI translator is set up for your site.
-3. Review every suggestion and save to keep the ones you want.
+3. Review every suggestion, then accept or reject it individually.
+4. Use **Save** to keep the accepted suggestions.
 
 ![A translator runs the Translate selected action when an AI translator is available.](screenshots/translation-manager-ai-translate-selected.png)
 
 ### How to import or export translations
 
-1. To bring in translations, use **Import contents** and choose the format.
-2. To send them out (for a translator, for example), use **Export CSV**, **Export PO**, or **Export XLIFF**.
+1. First choose the **Source**, **Source locale**, **Target locale**, and translation **File** you want to work with.
+2. To bring in translations for that selected file, use **Import contents**, choose **CSV**, **PO**, or **XLIFF**, then paste the translated contents into the form.
+3. To send out that selected file, use **Export CSV**, **Export PO**, or **Export XLIFF**.
 
 ## Rolling out Translation Manager (for owners)
 

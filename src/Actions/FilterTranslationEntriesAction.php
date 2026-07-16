@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\TranslationManager\Actions;
 
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -11,6 +12,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class FilterTranslationEntriesAction
 {
+    use AsFake;
     use AsObject;
 
     /**

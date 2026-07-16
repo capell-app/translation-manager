@@ -6,6 +6,7 @@ namespace Capell\TranslationManager\Actions;
 
 use Capell\TranslationManager\Contracts\TranslationSourceResolver;
 use Capell\TranslationManager\Data\TranslationSourceData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -13,6 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class ListTranslationSourcesAction
 {
+    use AsFake;
     use AsObject;
 
     /**

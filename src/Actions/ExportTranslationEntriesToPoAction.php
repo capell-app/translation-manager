@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Capell\TranslationManager\Actions;
 
 use Capell\TranslationManager\Data\TranslationEntryData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ExportTranslationEntriesToPoAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $sourceKey, string $fileKey, string $sourceLocale, string $targetLocale): string

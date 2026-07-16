@@ -7,10 +7,12 @@ namespace Capell\TranslationManager\Actions;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use DOMDocument;
 use DOMElement;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ExportTranslationEntriesToXliffAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $sourceKey, string $fileKey, string $sourceLocale, string $targetLocale): string

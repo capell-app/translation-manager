@@ -6,10 +6,12 @@ namespace Capell\TranslationManager\Actions;
 
 use Capell\TranslationManager\Contracts\TranslationFileStore;
 use Capell\TranslationManager\Contracts\TranslationSourceResolver;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class DuplicateLocaleAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $sourceKey, string $fromLocale, string $targetLocale): void

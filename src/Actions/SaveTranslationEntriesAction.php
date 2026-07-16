@@ -7,10 +7,12 @@ namespace Capell\TranslationManager\Actions;
 use Capell\TranslationManager\Contracts\TranslationFileStore;
 use Capell\TranslationManager\Contracts\TranslationSourceResolver;
 use Capell\TranslationManager\Data\TranslationWriteData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class SaveTranslationEntriesAction
 {
+    use AsFake;
     use AsObject;
 
     /**

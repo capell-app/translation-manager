@@ -7,10 +7,12 @@ namespace Capell\TranslationManager\Actions;
 use Capell\TranslationManager\Data\AITranslationSuggestionData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Data\TranslationFileData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildTranslationMemorySuggestionsAction
 {
+    use AsFake;
     use AsObject;
 
     /**

@@ -361,7 +361,7 @@ final class TranslationManagerPage extends Page
                 'key' => $source->key,
                 'label' => $source->label,
             ],
-            resolve(ListTranslationSourcesAction::class)->handle(),
+            ListTranslationSourcesAction::run(),
         ));
     }
 
@@ -380,7 +380,7 @@ final class TranslationManagerPage extends Page
                 'sourceAvailable' => $locale->sourceAvailable,
                 'overrideAvailable' => $locale->overrideAvailable,
             ],
-            resolve(ListInstalledLocalesAction::class)->handle($this->sourceKey),
+            ListInstalledLocalesAction::run($this->sourceKey),
         ));
 
         $localeNames = array_column($this->locales, 'locale');
@@ -406,7 +406,7 @@ final class TranslationManagerPage extends Page
                 'type' => $file->type,
                 'relativePath' => $file->relativePath,
             ],
-            resolve(ListTranslationFilesAction::class)->handle($this->sourceKey, $this->sourceLocale, $this->targetLocale),
+            ListTranslationFilesAction::run($this->sourceKey, $this->sourceLocale, $this->targetLocale),
         ));
 
         $fileKeys = array_column($this->files, 'key');
@@ -427,7 +427,7 @@ final class TranslationManagerPage extends Page
             return;
         }
 
-        $this->entries = array_values(collect(resolve(LoadTranslationComparisonAction::class)->handle($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale))
+        $this->entries = array_values(collect(LoadTranslationComparisonAction::run($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale))
             ->map(fn (TranslationEntryData $entry, int $index): array => [
                 'index' => $index,
                 'key' => $entry->key,
@@ -576,7 +576,7 @@ final class TranslationManagerPage extends Page
             $this->entries,
         ));
 
-        $suggestions = resolve(TranslateSelectedEntriesAction::class)->handle($this->sourceLocale, $this->targetLocale, $entryData, $this->selectedEntryKeys, $this->sourceKey);
+        $suggestions = TranslateSelectedEntriesAction::run($this->sourceLocale, $this->targetLocale, $entryData, $this->selectedEntryKeys, $this->sourceKey);
         $suggestionsByKey = [];
 
         foreach ($suggestions as $suggestion) {
@@ -603,7 +603,7 @@ final class TranslationManagerPage extends Page
         $submittedEntries = collect($this->entries)
             ->keyBy(fn (array $entry): string => $entry['key']);
 
-        return collect(resolve(LoadTranslationComparisonAction::class)->handle(
+        return collect(LoadTranslationComparisonAction::run(
             $this->sourceKey,
             $this->fileKey,
             $this->sourceLocale,
