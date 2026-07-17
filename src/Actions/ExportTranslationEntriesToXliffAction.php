@@ -37,10 +37,6 @@ final class ExportTranslationEntriesToXliffAction
         $file->appendChild($body);
 
         foreach (LoadTranslationComparisonAction::run($sourceKey, $fileKey, $sourceLocale, $targetLocale) as $entry) {
-            if (! $entry instanceof TranslationEntryData) {
-                continue;
-            }
-
             $body->appendChild($this->translationUnit($document, $entry));
         }
 

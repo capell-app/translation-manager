@@ -6,7 +6,6 @@ namespace Capell\TranslationManager\Actions;
 
 use Capell\TranslationManager\Data\AITranslationSuggestionData;
 use Capell\TranslationManager\Data\TranslationEntryData;
-use Capell\TranslationManager\Data\TranslationFileData;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -41,15 +40,7 @@ final class BuildTranslationMemorySuggestionsAction
         $memory = [];
 
         foreach (ListTranslationFilesAction::run($sourceKey, $sourceLocale, $targetLocale) as $file) {
-            if (! $file instanceof TranslationFileData) {
-                continue;
-            }
-
             foreach (LoadTranslationComparisonAction::run($sourceKey, $file->key, $sourceLocale, $targetLocale) as $entry) {
-                if (! $entry instanceof TranslationEntryData) {
-                    continue;
-                }
-
                 if ($entry->sourceValue === null) {
                     continue;
                 }

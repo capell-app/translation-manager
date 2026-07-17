@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\TranslationManager\Actions;
 
-use Capell\TranslationManager\Data\TranslationEntryData;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -24,10 +23,6 @@ final class ExportTranslationEntriesToPoAction
         ];
 
         foreach (LoadTranslationComparisonAction::run($sourceKey, $fileKey, $sourceLocale, $targetLocale) as $entry) {
-            if (! $entry instanceof TranslationEntryData) {
-                continue;
-            }
-
             $lines[] = '#. ' . $entry->status;
             $lines[] = 'msgctxt "' . $this->escape($entry->key) . '"';
             $lines[] = 'msgid "' . $this->escape($entry->sourceValue ?? '') . '"';

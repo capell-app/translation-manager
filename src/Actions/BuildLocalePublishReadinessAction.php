@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Capell\TranslationManager\Actions;
 
 use Capell\TranslationManager\Data\LocalePublishReadinessData;
-use Capell\TranslationManager\Data\TranslationEntryData;
-use Capell\TranslationManager\Data\TranslationFileData;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -32,15 +30,7 @@ final class BuildLocalePublishReadinessAction
         $entryCount = 0;
 
         foreach ($files as $file) {
-            if (! $file instanceof TranslationFileData) {
-                continue;
-            }
-
             foreach (LoadTranslationComparisonAction::run($sourceKey, $file->key, $sourceLocale, $targetLocale) as $entry) {
-                if (! $entry instanceof TranslationEntryData) {
-                    continue;
-                }
-
                 if (! $entry->editable) {
                     continue;
                 }

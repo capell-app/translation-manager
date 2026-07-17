@@ -6,8 +6,6 @@ namespace Capell\TranslationManager\Actions;
 
 use Capell\TranslationManager\Contracts\TranslationSourceResolver;
 use Capell\TranslationManager\Data\MissingTranslationKeyData;
-use Capell\TranslationManager\Data\TranslationEntryData;
-use Capell\TranslationManager\Data\TranslationFileData;
 use Illuminate\Filesystem\Filesystem;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -48,15 +46,7 @@ final class ScanMissingTranslationKeysAction
         $keys = [];
 
         foreach (ListTranslationFilesAction::run($sourceKey, $locale, $locale) as $file) {
-            if (! $file instanceof TranslationFileData) {
-                continue;
-            }
-
             foreach (LoadTranslationComparisonAction::run($sourceKey, $file->key, $locale, $locale) as $entry) {
-                if (! $entry instanceof TranslationEntryData) {
-                    continue;
-                }
-
                 $keys[] = $file->key === 'json'
                     ? $prefix . $entry->key
                     : $prefix . substr($file->key, 4) . '.' . $entry->key;
