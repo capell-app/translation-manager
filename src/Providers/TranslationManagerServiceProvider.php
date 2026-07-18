@@ -35,6 +35,8 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
 
     public function registeringPackage(): void
     {
+        parent::registeringPackage();
+
         $this
             ->registerBindings();
 
