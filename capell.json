@@ -39,9 +39,9 @@
         }
     ],
     "database": {
-        "migrations": false,
+        "migrations": true,
         "settings": false,
-        "requiredTables": []
+        "requiredTables": ["capell_translation_scan_runs"]
     },
     "commands": {
         "install": null,
