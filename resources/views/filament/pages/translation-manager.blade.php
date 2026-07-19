@@ -1,5 +1,17 @@
 <x-filament-panels::page>
-    <div class="space-y-4">
+    <div
+        class="space-y-4"
+        @if ($readinessScanRunId !== null || $missingKeysScanRunId !== null)
+            wire:poll.2s="refreshScanResults"
+        @endif
+    >
+        @if ($readinessScanRunId !== null || $missingKeysScanRunId !== null)
+            <x-filament::section compact>
+                <p class="text-sm text-gray-600 dark:text-gray-300">
+                    {{ __('capell-translation-manager::package.scan_in_progress') }}
+                </p>
+            </x-filament::section>
+        @endif
         <x-filament::section>
             <div class="grid gap-4 md:grid-cols-5">
                 <label class="space-y-1 text-sm">

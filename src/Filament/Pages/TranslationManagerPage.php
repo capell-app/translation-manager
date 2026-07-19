@@ -6,8 +6,6 @@ namespace Capell\TranslationManager\Filament\Pages;
 
 use BackedEnum;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
-use Capell\TranslationManager\Actions\BuildLocalePublishReadinessAction;
-use Capell\TranslationManager\Actions\BuildTranslationReadinessMatrixAction;
 use Capell\TranslationManager\Actions\CreateLocaleFilesAction;
 use Capell\TranslationManager\Actions\DuplicateLocaleAction;
 use Capell\TranslationManager\Actions\ExportTranslationEntriesToCsvAction;
@@ -21,14 +19,15 @@ use Capell\TranslationManager\Actions\ListInstalledLocalesAction;
 use Capell\TranslationManager\Actions\ListTranslationFilesAction;
 use Capell\TranslationManager\Actions\ListTranslationSourcesAction;
 use Capell\TranslationManager\Actions\LoadTranslationComparisonAction;
+use Capell\TranslationManager\Actions\QueueTranslationScanAction;
 use Capell\TranslationManager\Actions\SaveTranslationEntriesAction;
-use Capell\TranslationManager\Actions\ScanMissingTranslationKeysAction;
 use Capell\TranslationManager\Actions\TranslateSelectedEntriesAction;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
 use Capell\TranslationManager\Data\LocaleSummaryData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Data\TranslationFileData;
 use Capell\TranslationManager\Data\TranslationSourceData;
+use Capell\TranslationManager\Models\TranslationScanRun;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -37,6 +36,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Override;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class TranslationManagerPage extends Page
@@ -76,6 +76,14 @@ final class TranslationManagerPage extends Page
 
     /** @var array<int, array{key: string, path: string, line: int}> */
     public array $missingCodeKeys = [];
+
+    public ?int $readinessScanRunId = null;
+
+    public ?int $missingKeysScanRunId = null;
+
+    public ?string $readinessScanStatus = null;
+
+    public ?string $missingKeysScanStatus = null;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedLanguage;
 
@@ -138,7 +146,7 @@ final class TranslationManagerPage extends Page
     {
         $this->refreshFiles();
         $this->loadEntries();
-        $this->refreshReadinessMatrix();
+        $this->refreshReadinessMatrix(force: true);
         $this->rememberSelection();
     }
 
@@ -160,13 +168,19 @@ final class TranslationManagerPage extends Page
         $this->rememberSelection();
     }
 
-    public function refreshBrowser(): void
+    public function refreshBrowser(bool $forceReadinessScan = false): void
     {
         $this->refreshLocales();
         $this->refreshFiles();
         $this->loadEntries();
-        $this->refreshReadinessMatrix();
+        $this->refreshReadinessMatrix(force: $forceReadinessScan);
         $this->rememberSelection();
+    }
+
+    public function refreshScanResults(): void
+    {
+        $this->refreshScanResult(QueueTranslationScanAction::Readiness, $this->readinessScanRunId);
+        $this->refreshScanResult(QueueTranslationScanAction::MissingKeys, $this->missingKeysScanRunId);
     }
 
     public function saveTranslations(): void
@@ -183,6 +197,7 @@ final class TranslationManagerPage extends Page
         );
 
         $this->loadEntries();
+        $this->queueReadinessScan();
 
         Notification::make()
             ->title(__('capell-translation-manager::package.saved'))
@@ -259,7 +274,7 @@ final class TranslationManagerPage extends Page
 
                     CreateLocaleFilesAction::run($this->sourceKey, (string) $data['locale'], $this->sourceLocale);
                     $this->targetLocale = (string) $data['locale'];
-                    $this->refreshBrowser();
+                    $this->refreshBrowser(forceReadinessScan: true);
 
                     Notification::make()
                         ->title(__('capell-translation-manager::package.locale_created'))
@@ -285,7 +300,7 @@ final class TranslationManagerPage extends Page
 
                     DuplicateLocaleAction::run($this->sourceKey, (string) $data['from_locale'], (string) $data['target_locale']);
                     $this->targetLocale = (string) $data['target_locale'];
-                    $this->refreshBrowser();
+                    $this->refreshBrowser(forceReadinessScan: true);
 
                     Notification::make()
                         ->title(__('capell-translation-manager::package.locale_duplicated'))
@@ -440,13 +455,20 @@ final class TranslationManagerPage extends Page
             ->all());
     }
 
-    private function refreshReadinessMatrix(): void
+    private function refreshReadinessMatrix(bool $force = false): void
     {
-        $this->readinessMatrix = BuildTranslationReadinessMatrixAction::run(
-            $this->sourceKey,
-            $this->sourceLocale,
-            $this->locales,
-        );
+        if ($this->sourceKey === null) {
+            $this->readinessMatrix = [];
+
+            return;
+        }
+
+        $latestRun = $this->latestSuccessfulScan(QueueTranslationScanAction::Readiness);
+        $this->readinessMatrix = $this->readinessResultRows($latestRun);
+
+        if ($force || ! $latestRun instanceof TranslationScanRun) {
+            $this->queueReadinessScan();
+        }
     }
 
     private function exportCurrentFile(string $format): ?StreamedResponse
@@ -491,7 +513,7 @@ final class TranslationManagerPage extends Page
             default => ImportTranslationEntriesFromCsvAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
         };
 
-        $this->refreshBrowser();
+        $this->refreshBrowser(forceReadinessScan: true);
 
         Notification::make()
             ->title(__('capell-translation-manager::package.imported', [
@@ -508,19 +530,11 @@ final class TranslationManagerPage extends Page
             return;
         }
 
-        $readiness = BuildLocalePublishReadinessAction::run($this->sourceKey, $this->sourceLocale, $this->targetLocale);
+        $this->queueReadinessScan();
 
         Notification::make()
-            ->title($readiness->ready
-                ? __('capell-translation-manager::package.publish_ready')
-                : __('capell-translation-manager::package.publish_not_ready'))
-            ->body(__('capell-translation-manager::package.publish_readiness_body', [
-                'files' => $readiness->fileCount,
-                'entries' => $readiness->entryCount,
-                'missing' => $readiness->statusCounts['missing'] ?? 0,
-                'stale' => $readiness->statusCounts['stale'] ?? 0,
-            ]))
-            ->status($readiness->ready ? 'success' : 'warning')
+            ->title(__('capell-translation-manager::package.scan_queued'))
+            ->success()
             ->send();
     }
 
@@ -530,21 +544,174 @@ final class TranslationManagerPage extends Page
             return;
         }
 
-        $this->missingCodeKeys = array_map(
-            static fn ($missingKey): array => [
-                'key' => $missingKey->key,
-                'path' => $missingKey->path,
-                'line' => $missingKey->line,
-            ],
-            ScanMissingTranslationKeysAction::run($this->sourceKey, $this->sourceLocale),
-        );
+        $run = QueueTranslationScanAction::run(QueueTranslationScanAction::MissingKeys, $this->sourceKey, $this->sourceLocale);
+        $run->refresh();
+        $this->missingKeysScanRunId = $this->scanRunId($run);
+        $this->missingKeysScanStatus = $run->status;
+        $this->refreshScanResult(QueueTranslationScanAction::MissingKeys, $this->missingKeysScanRunId);
 
         Notification::make()
-            ->title(__('capell-translation-manager::package.missing_key_scan_complete', [
-                'count' => count($this->missingCodeKeys),
-            ]))
-            ->status($this->missingCodeKeys === [] ? 'success' : 'warning')
+            ->title(__('capell-translation-manager::package.scan_queued'))
+            ->success()
             ->send();
+    }
+
+    private function queueReadinessScan(): void
+    {
+        if ($this->sourceKey === null) {
+            return;
+        }
+
+        $run = QueueTranslationScanAction::run(QueueTranslationScanAction::Readiness, $this->sourceKey, $this->sourceLocale);
+        $run->refresh();
+        $this->readinessScanRunId = $this->scanRunId($run);
+        $this->readinessScanStatus = $run->status;
+        $this->refreshScanResult(QueueTranslationScanAction::Readiness, $this->readinessScanRunId);
+    }
+
+    private function latestSuccessfulScan(string $type): ?TranslationScanRun
+    {
+        if ($this->sourceKey === null) {
+            return null;
+        }
+
+        return TranslationScanRun::query()
+            ->where('type', $type)
+            ->where('source_key', $this->sourceKey)
+            ->where('source_locale', $this->sourceLocale)
+            ->where('status', 'succeeded')
+            ->latest('id')
+            ->first();
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function scanResultRows(?TranslationScanRun $run): array
+    {
+        if (! $run instanceof TranslationScanRun || ! is_array($run->result)) {
+            return [];
+        }
+
+        $rows = [];
+
+        foreach ($run->result as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $normalized = [];
+            foreach ($row as $key => $value) {
+                if (is_string($key)) {
+                    $normalized[$key] = $value;
+                }
+            }
+            $rows[] = $normalized;
+        }
+
+        return $rows;
+    }
+
+    /** @return list<array{locale: string, fileCount: int, entryCount: int, missing: int, stale: int, changed: int, same: int, extra: int, fallback: int, ready: bool}> */
+    private function readinessResultRows(?TranslationScanRun $run): array
+    {
+        $rows = [];
+        foreach ($this->scanResultRows($run) as $row) {
+            if (is_string($row['locale'] ?? null)
+                && is_int($row['fileCount'] ?? null)
+                && is_int($row['entryCount'] ?? null)
+                && is_int($row['missing'] ?? null)
+                && is_int($row['stale'] ?? null)
+                && is_int($row['changed'] ?? null)
+                && is_int($row['same'] ?? null)
+                && is_int($row['extra'] ?? null)
+                && is_int($row['fallback'] ?? null)
+                && is_bool($row['ready'] ?? null)) {
+                $rows[] = [
+                    'locale' => $row['locale'],
+                    'fileCount' => $row['fileCount'],
+                    'entryCount' => $row['entryCount'],
+                    'missing' => $row['missing'],
+                    'stale' => $row['stale'],
+                    'changed' => $row['changed'],
+                    'same' => $row['same'],
+                    'extra' => $row['extra'],
+                    'fallback' => $row['fallback'],
+                    'ready' => $row['ready'],
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
+    /** @return list<array{key: string, path: string, line: int}> */
+    private function missingKeyResultRows(?TranslationScanRun $run): array
+    {
+        $rows = [];
+        foreach ($this->scanResultRows($run) as $row) {
+            if (is_string($row['key'] ?? null) && is_string($row['path'] ?? null) && is_int($row['line'] ?? null)) {
+                $rows[] = [
+                    'key' => $row['key'],
+                    'path' => $row['path'],
+                    'line' => $row['line'],
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
+    private function scanRunId(TranslationScanRun $run): int
+    {
+        $runId = $run->getKey();
+        throw_unless(is_int($runId), RuntimeException::class, 'Translation scan run must have an integer key.');
+
+        return $runId;
+    }
+
+    private function refreshScanResult(string $type, ?int $runId): void
+    {
+        if ($runId === null) {
+            return;
+        }
+
+        $run = TranslationScanRun::query()->find($runId);
+
+        if (! $run instanceof TranslationScanRun) {
+            return;
+        }
+
+        if ($type === QueueTranslationScanAction::Readiness) {
+            $this->readinessScanStatus = $run->status;
+        } else {
+            $this->missingKeysScanStatus = $run->status;
+        }
+
+        if (! in_array($run->status, ['succeeded', 'failed'], true)) {
+            return;
+        }
+
+        if ($run->status === 'succeeded') {
+            if ($type === QueueTranslationScanAction::Readiness) {
+                $this->readinessMatrix = $this->readinessResultRows($run);
+                $this->readinessScanRunId = null;
+            } else {
+                $this->missingCodeKeys = $this->missingKeyResultRows($run);
+                $this->missingKeysScanRunId = null;
+            }
+        }
+
+        if ($run->status === 'failed') {
+            Notification::make()
+                ->title(__('capell-translation-manager::package.scan_failed'))
+                ->danger()
+                ->send();
+
+            if ($type === QueueTranslationScanAction::Readiness) {
+                $this->readinessScanRunId = null;
+            } else {
+                $this->missingKeysScanRunId = null;
+            }
+        }
     }
 
     private function downloadFilename(string $format): string

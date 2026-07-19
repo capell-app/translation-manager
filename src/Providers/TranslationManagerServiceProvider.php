@@ -30,7 +30,8 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
             ->name(self::$name)
             ->hasConfigFile('capell-translation-manager')
             ->hasTranslations()
-            ->hasViews(self::$name);
+            ->hasViews(self::$name)
+            ->hasMigration('2026_07_19_120000_create_translation_scan_runs_table');
     }
 
     public function registeringPackage(): void

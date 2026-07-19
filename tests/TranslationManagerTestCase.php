@@ -18,6 +18,7 @@ use Filament\Support\SupportServiceProvider;
 use Filament\Tables\TablesServiceProvider;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Foundation\Testing\Concerns\InteractsWithSession;
+use Illuminate\Support\Facades\Schema;
 use Livewire\LivewireServiceProvider;
 use Lorisleiva\Actions\ActionServiceProvider;
 use Orchestra\Testbench\TestCase;
@@ -27,6 +28,17 @@ use Spatie\LaravelData\LaravelDataServiceProvider;
 class TranslationManagerTestCase extends TestCase
 {
     use InteractsWithSession;
+
+    #[Override]
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        if (! Schema::hasTable('capell_translation_scan_runs')) {
+            $migration = require __DIR__ . '/../database/migrations/2026_07_19_120000_create_translation_scan_runs_table.php';
+            $migration->up();
+        }
+    }
 
     /**
      * @return class-string[]
