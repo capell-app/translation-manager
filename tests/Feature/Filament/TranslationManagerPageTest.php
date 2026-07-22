@@ -3,10 +3,16 @@
 declare(strict_types=1);
 
 use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
+use Capell\AIOrchestrator\Providers\AIOrchestratorServiceProvider;
+use Capell\AIOrchestrator\Support\Ai\PrismProvider;
+use Capell\Core\Facades\CapellCore;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
 use Capell\TranslationManager\Data\AITranslationSuggestionData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Filament\Pages\TranslationManagerPage;
+use Capell\TranslationManager\Integrations\AI\PrismTranslationAITranslator;
+use Capell\TranslationManager\Providers\TranslationManagerServiceProvider;
+use Capell\TranslationManager\Tests\Fixtures\TranslationPrismProviderFake;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
 use Filament\Actions\Action;
 use Filament\Schemas\Schema;
@@ -62,6 +68,20 @@ it('registers the translation manager as an extension page', function (): void {
         ->pluck('page');
 
     expect($extensionPages)->toContain(TranslationManagerPage::class);
+});
+
+it('keeps AI translation visible but disabled with an installation explanation when unavailable', function (): void {
+    $page = resolve(TranslationManagerPage::class);
+    $translateAction = collect(translationManagerHeaderActions($page))
+        ->filter(fn (mixed $action): bool => $action instanceof Action)
+        ->each(fn (Action $action): Action => $action->livewire($page))
+        ->first(fn (Action $action): bool => $action->getName() === 'translateSelected');
+
+    expect($translateAction)->toBeInstanceOf(Action::class)
+        ->and($translateAction->isDisabled())->toBeTrue()
+        ->and($translateAction->getTooltip())->toBe(
+            __('capell-translation-manager::package.ai_unavailable'),
+        );
 });
 
 it('renders translation entries for admins who can manage extensions', function (): void {
@@ -151,6 +171,47 @@ it('filters saves and translates entries from the page state', function (): void
     expect($page->fileKey)->toBe('php:messages')
         ->and($page->targetLocale)->toBe('fr')
         ->and($page->entries)->not->toBeEmpty();
+});
+
+it('switches to the Prism translator and persists an accepted translation when AI Orchestrator is available', function (): void {
+    expect(resolve(TranslationAITranslator::class))->not->toBeInstanceOf(PrismTranslationAITranslator::class);
+
+    app()->register(AIOrchestratorServiceProvider::class);
+    CapellCore::forcePackageInstalled(AIOrchestratorServiceProvider::$packageName);
+
+    $provider = new TranslationPrismProviderFake('{"translations":{"title":"Bonjour"}}');
+    app()->instance(PrismProvider::class, $provider);
+
+    (new TranslationManagerServiceProvider(app()))->registeringPackage();
+
+    expect(CapellCore::isPackageAvailable(AIOrchestratorServiceProvider::$packageName))->toBeTrue()
+        ->and(resolve(TranslationAITranslator::class))->toBeInstanceOf(PrismTranslationAITranslator::class);
+
+    $page = resolve(TranslationManagerPage::class);
+    $page->mount();
+    $page->sourceKey = 'app';
+    $page->refreshBrowser();
+    $page->selectedEntryKeys = ['title'];
+
+    $translateAction = collect(translationManagerHeaderActions($page))
+        ->filter(fn (mixed $action): bool => $action instanceof Action)
+        ->each(fn (Action $action): Action => $action->livewire($page))
+        ->first(fn (Action $action): bool => $action->getName() === 'translateSelected');
+
+    expect($translateAction)->toBeInstanceOf(Action::class)
+        ->and($translateAction->isDisabled())->toBeFalse();
+
+    translationManagerRunAction($translateAction);
+
+    expect($page->pendingAiSuggestions)->toBe(['title' => 'Bonjour'])
+        ->and($provider->requests)->toHaveCount(1)
+        ->and(data_get($provider->requests, '0.messages.1.content'))->toContain('"target_locale":"fr"');
+
+    $page->acceptAiSuggestion('title');
+    $page->saveTranslations();
+
+    expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))
+        ->toBe(['title' => 'Bonjour']);
 });
 
 it('only saves server-authorized editable translation keys from Livewire state', function (): void {

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 return [
-    'ai_unavailable' => 'AI translation is not available.',
+    'ai_unavailable' => 'Install and enable AI Orchestrator to translate selected entries.',
     'accept_suggestion' => 'Accept',
     'ai_suggestion' => 'AI suggestion',
     'application_source' => 'Application',

@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Capell\TranslationManager\Providers;
 
-use Capell\AIOrchestrator\Contracts\AIOrchestratorModule;
+use Capell\AIOrchestrator\Providers\AIOrchestratorServiceProvider;
 use Capell\AIOrchestrator\Support\AIOrchestratorModuleRegistry;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
 use Capell\TranslationManager\Contracts\TranslationFileStore;
 use Capell\TranslationManager\Contracts\TranslationSourceResolver;
+use Capell\TranslationManager\Integrations\AI\PrismTranslationAITranslator;
 use Capell\TranslationManager\Integrations\AI\TranslationManagerAIOrchestratorModule;
 use Capell\TranslationManager\Support\ConfigTranslationSourceResolver;
 use Capell\TranslationManager\Support\FileTranslationFileStore;
@@ -20,6 +21,8 @@ use Spatie\LaravelPackageTools\Package;
 
 final class TranslationManagerServiceProvider extends AbstractPackageServiceProvider
 {
+    private const string AI_ORCHESTRATOR_PACKAGE = 'capell-app/ai-orchestrator';
+
     public static string $name = 'capell-translation-manager';
 
     public static string $packageName = 'capell-app/translation-manager';
@@ -46,7 +49,7 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
                 return;
             }
 
-            $this->registerOptionalAIOrchestratorModule();
+            $this->registerOptionalAIOrchestratorIntegration();
         });
     }
 
@@ -65,14 +68,14 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
         return $this;
     }
 
-    private function registerOptionalAIOrchestratorModule(): self
+    private function registerOptionalAIOrchestratorIntegration(): self
     {
-        if (
-            ! interface_exists(AIOrchestratorModule::class)
-            || ! class_exists(AIOrchestratorModuleRegistry::class)
-        ) {
+        if (! CapellCore::isPackageAvailable(self::AI_ORCHESTRATOR_PACKAGE)
+            || $this->app->getProvider(AIOrchestratorServiceProvider::class) === null) {
             return $this;
         }
+
+        $this->app->singleton(TranslationAITranslator::class, PrismTranslationAITranslator::class);
 
         $this->app->afterResolving(
             AIOrchestratorModuleRegistry::class,

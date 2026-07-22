@@ -310,7 +310,10 @@ final class TranslationManagerPage extends Page
             Action::make('translateSelected')
                 ->label(__('capell-translation-manager::package.translate_selected'))
                 ->icon(Heroicon::OutlinedSparkles)
-                ->visible(fn (): bool => $this->aiAvailable())
+                ->disabled(fn (): bool => ! $this->aiAvailable())
+                ->tooltip(fn (): ?string => $this->aiAvailable()
+                    ? null
+                    : __('capell-translation-manager::package.ai_unavailable'))
                 ->action(function (): void {
                     $this->translateSelectedEntries();
                 }),

@@ -36,4 +36,10 @@ return [
         //     'CMS' => 'CMS',
         // ],
     ],
+
+    'ai' => [
+        'model' => env('CAPELL_TRANSLATION_MANAGER_AI_MODEL', 'gpt-4o'),
+        'max_tokens' => (int) env('CAPELL_TRANSLATION_MANAGER_AI_MAX_TOKENS', 2000),
+        'temperature' => (float) env('CAPELL_TRANSLATION_MANAGER_AI_TEMPERATURE', 0.1),
+    ],
 ];

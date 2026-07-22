@@ -4,6 +4,8 @@ All notable changes to `capell-app/translation-manager` will be documented in th
 
 ## Unreleased
 
+- Removed the AI Orchestrator producer-owned request-budget dependency; translation generation retains token limits and review workflow controls.
+
 - Reconciled the completed improvement plan, including typed AI Orchestrator registration, request-local source discovery memoization, and accepted residual risks for large export memory, per-source write permissions, bundled locales, and concurrency hardening.
 
 ### 2026-06-03
