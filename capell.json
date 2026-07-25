@@ -165,28 +165,28 @@
             },
             {
                 "path": "docs/screenshots/translation-manager-page-empty-state.png",
-                "alt": "Translation Manager empty state with source and filter controls",
-                "caption": "Translation Manager empty state"
+                "alt": "Illustrative translation Manager empty state with source and filter controls",
+                "caption": "Illustrative translation Manager empty state"
             },
             {
                 "path": "docs/screenshots/translation-manager-comparison-grid.png",
-                "alt": "Translation Manager comparison grid with source and target values",
-                "caption": "Translation comparison grid"
+                "alt": "Illustrative translation Manager comparison grid with source and target values",
+                "caption": "Illustrative translation comparison grid"
             },
             {
                 "path": "docs/screenshots/translation-manager-create-locale-modal.png",
-                "alt": "Translation Manager create locale workflow",
-                "caption": "Create locale workflow"
+                "alt": "Illustrative translation Manager create locale workflow",
+                "caption": "Illustrative create locale workflow"
             },
             {
                 "path": "docs/screenshots/translation-manager-duplicate-locale-modal.png",
-                "alt": "Translation Manager duplicate locale workflow",
-                "caption": "Duplicate locale workflow"
+                "alt": "Illustrative translation Manager duplicate locale workflow",
+                "caption": "Illustrative duplicate locale workflow"
             },
             {
                 "path": "docs/screenshots/translation-manager-ai-translate-selected.png",
-                "alt": "Translation Manager AI translate selected review workflow",
-                "caption": "AI translate selected review"
+                "alt": "Illustrative translation Manager AI translate selected review workflow",
+                "caption": "Illustrative aI translate selected review"
             }
         ],
         "categories": ["admin"]

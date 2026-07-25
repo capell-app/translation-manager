@@ -72,10 +72,7 @@ it('registers the translation manager as an extension page', function (): void {
 
 it('keeps AI translation visible but disabled with an installation explanation when unavailable', function (): void {
     $page = resolve(TranslationManagerPage::class);
-    $translateAction = collect(translationManagerHeaderActions($page))
-        ->filter(fn (mixed $action): bool => $action instanceof Action)
-        ->each(fn (Action $action): Action => $action->livewire($page))
-        ->first(fn (Action $action): bool => $action->getName() === 'translateSelected');
+    $translateAction = translationManagerHeaderAction($page, 'translateSelected');
 
     expect($translateAction)->toBeInstanceOf(Action::class)
         ->and($translateAction->isDisabled())->toBeTrue()
@@ -193,10 +190,7 @@ it('switches to the Prism translator and persists an accepted translation when A
     $page->refreshBrowser();
     $page->selectedEntryKeys = ['title'];
 
-    $translateAction = collect(translationManagerHeaderActions($page))
-        ->filter(fn (mixed $action): bool => $action instanceof Action)
-        ->each(fn (Action $action): Action => $action->livewire($page))
-        ->first(fn (Action $action): bool => $action->getName() === 'translateSelected');
+    $translateAction = translationManagerHeaderAction($page, 'translateSelected');
 
     expect($translateAction)->toBeInstanceOf(Action::class)
         ->and($translateAction->isDisabled())->toBeFalse();
@@ -276,7 +270,7 @@ it('drives locale creation duplication translation and save header actions from 
     $actions = collect(translationManagerHeaderActions($page))
         ->filter(fn (mixed $action): bool => $action instanceof Action)
         ->each(fn (Action $action): Action => $action->livewire($page))
-        ->keyBy(fn (Action $action): string => $action->getName());
+        ->keyBy(fn (Action $action): string => (string) $action->getName());
 
     expect($actions->keys()->all())->toBe([
         'createLocale',
@@ -386,12 +380,28 @@ function translationManagerHeaderActions(TranslationManagerPage $page): array
     return $method->invoke($page);
 }
 
+function translationManagerHeaderAction(TranslationManagerPage $page, string $name): Action
+{
+    $action = collect(translationManagerHeaderActions($page))
+        ->filter(fn (mixed $action): bool => $action instanceof Action)
+        ->each(fn (Action $action): Action => $action->livewire($page))
+        ->first(fn (Action $action): bool => $action->getName() === $name);
+
+    if (! $action instanceof Action) {
+        throw new RuntimeException(sprintf('Expected the %s header action.', $name));
+    }
+
+    return $action;
+}
+
 /**
  * @param  array<string, mixed>  $data
  */
 function translationManagerRunAction(?Action $action, array $data = []): mixed
 {
-    expect($action)->toBeInstanceOf(Action::class);
+    if (! $action instanceof Action) {
+        throw new RuntimeException('Expected a translation manager header action.');
+    }
 
     $closure = $action->getActionFunction();
 

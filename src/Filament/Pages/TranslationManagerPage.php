@@ -311,9 +311,15 @@ final class TranslationManagerPage extends Page
                 ->label(__('capell-translation-manager::package.translate_selected'))
                 ->icon(Heroicon::OutlinedSparkles)
                 ->disabled(fn (): bool => ! $this->aiAvailable())
-                ->tooltip(fn (): ?string => $this->aiAvailable()
-                    ? null
-                    : __('capell-translation-manager::package.ai_unavailable'))
+                ->tooltip(function (): ?string {
+                    if ($this->aiAvailable()) {
+                        return null;
+                    }
+
+                    $tooltip = __('capell-translation-manager::package.ai_unavailable');
+
+                    return is_string($tooltip) ? $tooltip : null;
+                })
                 ->action(function (): void {
                     $this->translateSelectedEntries();
                 }),
