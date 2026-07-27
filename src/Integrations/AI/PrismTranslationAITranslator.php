@@ -46,10 +46,13 @@ final readonly class PrismTranslationAITranslator implements TranslationAITransl
         $translations = $this->translationsFromResponse($response->content);
 
         return array_values(array_filter(array_map(
-            static function (TranslationEntryData $entry) use ($translations): ?AITranslationSuggestionData {
+            function (TranslationEntryData $entry) use ($translations): ?AITranslationSuggestionData {
                 $translation = $translations[$entry->key] ?? null;
 
-                if (! is_string($translation) || trim($translation) === '') {
+                if (! is_string($translation)
+                    || trim($translation) === ''
+                    || ! is_string($entry->sourceValue)
+                    || ! $this->preservesStructure($entry->sourceValue, $translation)) {
                     return null;
                 }
 
@@ -60,6 +63,42 @@ final readonly class PrismTranslationAITranslator implements TranslationAITransl
             },
             $entries,
         )));
+    }
+
+    private function preservesStructure(string $source, string $translation): bool
+    {
+        return $this->tokens($source, '/(?<!:):[A-Za-z_][A-Za-z0-9_]*/') === $this->tokens($translation, '/(?<!:):[A-Za-z_][A-Za-z0-9_]*/')
+            && $this->tokens($source, '/\{[A-Za-z_][A-Za-z0-9_]*\}/') === $this->tokens($translation, '/\{[A-Za-z_][A-Za-z0-9_]*\}/')
+            && $this->tokens($source, '/%(?:\d+\$)?[-+0-9.\']*[bcdeEfFgGosuxX]/') === $this->tokens($translation, '/%(?:\d+\$)?[-+0-9.\']*[bcdeEfFgGosuxX]/')
+            && $this->tokens($source, '/<\/?[A-Za-z][^>]*>/', false) === $this->tokens($translation, '/<\/?[A-Za-z][^>]*>/', false)
+            && $this->pluralStructure($source) === $this->pluralStructure($translation);
+    }
+
+    /** @return list<string> */
+    private function tokens(string $value, string $pattern, bool $sort = true): array
+    {
+        preg_match_all($pattern, $value, $matches);
+        $tokens = $matches[0] ?? [];
+        if ($sort) {
+            sort($tokens, SORT_STRING);
+        }
+
+        return $tokens;
+    }
+
+    /** @return array{branches: int, selectors: list<string>} */
+    private function pluralStructure(string $value): array
+    {
+        $branches = explode('|', $value);
+        $selectors = [];
+
+        foreach ($branches as $branch) {
+            if (preg_match('/^\s*(\{[^}]+\}|\[[^\]]+\])/', $branch, $matches) === 1) {
+                $selectors[] = $matches[1];
+            }
+        }
+
+        return ['branches' => count($branches), 'selectors' => $selectors];
     }
 
     /**
