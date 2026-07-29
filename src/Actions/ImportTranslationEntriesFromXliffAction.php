@@ -22,6 +22,10 @@ final class ImportTranslationEntriesFromXliffAction
 
     public function handle(string $sourceKey, string $fileKey, string $locale, string $contents): TranslationCsvImportResultData
     {
+        if ($contents === '') {
+            throw new InvalidArgumentException('Translation XLIFF must not be empty.');
+        }
+
         throw_if(
             preg_match('/<!DOCTYPE(?:\\s|>)/i', $contents) === 1,
             InvalidArgumentException::class,
