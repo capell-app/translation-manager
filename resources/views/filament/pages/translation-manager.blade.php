@@ -145,11 +145,11 @@
                                     </div>
 
                                     <span
-                                        @class ([
-                                            'rounded-full px-2 py-1 text-xs font-medium',
-                                            'bg-success-50 text-success-700 dark:bg-success-400/10 dark:text-success-300' => $readiness['ready'],
-                                            'bg-warning-50 text-warning-700 dark:bg-warning-400/10 dark:text-warning-300' => ! $readiness['ready'],
-                                        ])
+                                        @class([
+                                        'rounded-full px-2 py-1 text-xs font-medium',
+                                        'bg-success-50 text-success-700 dark:bg-success-400/10 dark:text-success-300' => $readiness['ready'],
+                                        'bg-warning-50 text-warning-700 dark:bg-warning-400/10 dark:text-warning-300' => ! $readiness['ready'],
+                                    ])
                                     >
                                         {{ $readiness['ready'] ? __('capell-translation-manager::package.ready') : __('capell-translation-manager::package.needs_work') }}
                                     </span>
