@@ -15,7 +15,7 @@ Evidence: [`src/Filament/Pages/TranslationManagerPage.php`](src/Filament/Pages/T
 Status details:
 
 - Status: Available
-- Tier: premium
+- Tier: free
 - Bundle: publishing
 - Composer package: `capell-app/translation-manager`
 - Namespace: `Capell\TranslationManager`
