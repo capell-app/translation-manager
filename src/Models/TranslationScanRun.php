@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\TranslationManager\Models;
 
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Override;
@@ -21,10 +23,13 @@ use Override;
  */
 final class TranslationScanRun extends Model
 {
+    /** @use HasFactory<Factory<static>> */
+    use HasFactory;
+
     protected $table = 'capell_translation_scan_runs';
 
     /** @var list<string> */
-    protected $guarded = [];
+    protected $guarded = ['id'];
 
     /** @return array<string, string> */
     #[Override]
