@@ -10,8 +10,6 @@ Translation Manager adds an admin workspace for comparing Laravel locales, findi
 
 Administrators can compare locale coverage, edit entries, and manage locale files from one Filament page.
 
-Evidence: [`src/Filament/Pages/TranslationManagerPage.php`](src/Filament/Pages/TranslationManagerPage.php), [`src/Actions/LoadTranslationComparisonAction.php`](src/Actions/LoadTranslationComparisonAction.php), [`src/Actions/SaveTranslationEntriesAction.php`](src/Actions/SaveTranslationEntriesAction.php), [`src/Support/FileTranslationFileStore.php`](src/Support/FileTranslationFileStore.php), [`src/Actions/CreateLocaleFilesAction.php`](src/Actions/CreateLocaleFilesAction.php), [`src/Actions/DuplicateLocaleAction.php`](src/Actions/DuplicateLocaleAction.php), [`tests/Feature/Filament/TranslationManagerPageTest.php`](tests/Feature/Filament/TranslationManagerPageTest.php).
-
 Status details:
 
 - Status: Available
@@ -27,18 +25,16 @@ Status details:
 
 **For teams:** Content and localization teams can close locale gaps while keeping changes in normal Laravel language files and package overrides.
 
-Evidence: [`src/Contracts/TranslationFileStore.php`](src/Contracts/TranslationFileStore.php), [`src/Support/FileTranslationFileStore.php`](src/Support/FileTranslationFileStore.php), [`src/Actions/LoadTranslationComparisonAction.php`](src/Actions/LoadTranslationComparisonAction.php), [`tests/Feature/TranslationManagerActionsTest.php`](tests/Feature/TranslationManagerActionsTest.php), [`src/Filament/Pages/TranslationManagerPage.php`](src/Filament/Pages/TranslationManagerPage.php), [`tests/Feature/Filament/TranslationManagerPageTest.php`](tests/Feature/Filament/TranslationManagerPageTest.php).
-
 ## Screens And Workflow
 
 Screenshot contract: `docs/screenshots.json`.
 
 ![Illustrative translation manager page with source, locale, file, and filter selectors in the no-results state preview](docs/screenshots/translation-manager-page-empty-state.png)
 
-![Illustrative translation comparison grid with source strings, editable target strings, statuses, and entry selection preview](docs/screenshots/translation-manager-comparison-grid.png)
+![Translation comparison in the installed Translation Manager](docs/screenshots/translation-manager-comparison-grid.png)
 
 - Illustrative translation manager page with source, locale, file, and filter selectors in the no-results state preview (frontend, required evidence).
-- Illustrative translation comparison grid with source strings, editable target strings, statuses, and entry selection preview (frontend, required evidence).
+- Translation comparison in the installed Translation Manager (admin, required evidence).
 - Illustrative create locale modal preview (frontend, required evidence).
 - Illustrative duplicate locale modal preview (frontend, required evidence).
 - Illustrative translate selected action visible with ai translator support preview (frontend, supplementary documentation fixture).
@@ -189,12 +185,13 @@ Screenshot contract: `docs/screenshots.json`.
 ## Quick Start
 
 1. Install the package: `composer require capell-app/translation-manager`.
-2. Open `/screenshot-fixtures/marketplace-translation-manager/translation-manager-page-empty-state` and confirm the public output renders without admin state.
+2. Open the package admin page or resource and verify Translation Manager is available.
 
 ## Next Steps
 
 - [Package docs](docs/README.md)
 - [Overview](docs/overview.md)
+- [Worked extension examples](docs/extension-contracts.md)
 - [Admin guide](docs/admin-guide.md)
 - Configuration files: [`config/capell-translation-manager.php`](config/capell-translation-manager.php).
 - [Troubleshooting](#troubleshooting)
@@ -204,6 +201,5 @@ Screenshot contract: `docs/screenshots.json`.
 - [Capell documentation design system](../../docs/DESIGN_SYSTEM.md)
 - [Capell and package ERD notes](../../docs/erd/capell-and-package-erds.md)
 - Related packages: [Ai Orchestrator](../ai-orchestrator/README.md), [Seo Suite](../seo-suite/README.md).
-- Focused tests: `vendor/bin/pest packages/translation-manager/tests --configuration=phpunit.xml`.
 
 <!-- prettier-ignore-end -->
