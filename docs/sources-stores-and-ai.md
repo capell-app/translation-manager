@@ -129,9 +129,3 @@ Configure glossary terms by target locale:
 ```
 
 When a source value contains `CMS`, a non-empty French target value must contain `SGC`. The same validation runs for direct saves and CSV, XLIFF, or PO imports.
-
-## Verification
-
-```bash
-vendor/bin/pest packages/translation-manager/tests --configuration=phpunit.xml
-```
