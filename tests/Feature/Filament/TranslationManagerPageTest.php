@@ -5,7 +5,13 @@ declare(strict_types=1);
 use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
 use Capell\AIOrchestrator\Providers\AIOrchestratorServiceProvider;
 use Capell\AIOrchestrator\Support\Ai\PrismProvider;
+use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Facades\CapellCore;
+use Capell\Tests\Support\InstalledRuntimeParity;
+use Capell\Tests\Support\InstalledRuntimeState;
+use Capell\Tests\Support\InstalledRuntimeTestCase;
+use Capell\Tests\Support\RenderedHtml;
+use Capell\Tests\Support\TranslationNavigationAssertions;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
 use Capell\TranslationManager\Data\AITranslationSuggestionData;
 use Capell\TranslationManager\Data\TranslationEntryData;
@@ -17,9 +23,9 @@ use Capell\TranslationManager\Tests\TranslationManagerTestCase;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Panel;
-use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User as AuthenticatableUser;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -77,7 +83,7 @@ it('keeps AI translation visible but disabled with an installation explanation w
     $page = resolve(TranslationManagerPage::class);
     $translateAction = translationManagerHeaderAction($page, 'translateSelected');
 
-    expect($translateAction)->toBeInstanceOf(Action::class)
+    expect($translateAction->isVisible())->toBeTrue()
         ->and($translateAction->isDisabled())->toBeTrue()
         ->and($translateAction->getTooltip())->toBe(
             __('capell-translation-manager::package.ai_unavailable'),
@@ -93,6 +99,7 @@ it('renders translation entries for admins who can manage extensions', function 
         /**
          * @param  iterable<int, mixed>  $abilities
          */
+        #[Override]
         public function can($abilities, $arguments = []): bool
         {
             return true;
@@ -149,9 +156,7 @@ it('filters saves and translates entries from the page state', function (): void
         ->and($page->filteredEntries())->toHaveCount(1)
         ->and($page->filteredEntries()[0]['key'])->toBe('title');
 
-    $reflection = new ReflectionClass($page);
-    $method = $reflection->getMethod('translateSelectedEntries');
-    $method->invoke($page);
+    translationManagerRunAction(translationManagerHeaderAction($page, 'translateSelected'));
 
     expect($page->entries[0]['targetValue'])->toBe('')
         ->and($page->pendingAiSuggestions)->toBe(['title' => 'en:fr:Hello']);
@@ -174,43 +179,51 @@ it('filters saves and translates entries from the page state', function (): void
 });
 
 it('switches to the Prism translator and persists an accepted translation when AI Orchestrator is available', function (): void {
-    expect(resolve(TranslationAITranslator::class))->not->toBeInstanceOf(PrismTranslationAITranslator::class);
+    InstalledRuntimeState::run(function (): void {
+        $app = InstalledRuntimeTestCase::boot(InstalledRuntimeParity::manifest('translation-manager'), false, function (Application $app): void {
+            $app->make('config')->set('capell-translation-manager.app_source.path', $this->appLanguagePath);
+            $app->make('config')->set('capell-translation-manager.package_paths', []);
+            $app->make('config')->set('capell-translation-manager.scan_paths', [$this->translationBasePath . '/views']);
+        }, sourceRoot: dirname(__DIR__, 3));
+        expect(resolve(TranslationAITranslator::class))->not->toBeInstanceOf(PrismTranslationAITranslator::class);
 
-    app()->register(AIOrchestratorServiceProvider::class);
-    CapellCore::forcePackageInstalled(AIOrchestratorServiceProvider::$packageName);
+        app()->register(AIOrchestratorServiceProvider::class);
+        CapellCore::forcePackageInstalled(AIOrchestratorServiceProvider::$packageName);
 
-    $provider = new TranslationPrismProviderFake('{"translations":{"title":"Bonjour"}}');
-    app()->instance(PrismProvider::class, $provider);
+        $provider = new TranslationPrismProviderFake('{"translations":{"title":"Bonjour"}}');
+        app()->instance(PrismProvider::class, $provider);
 
-    new TranslationManagerServiceProvider(app())->registeringPackage();
+        InstalledRuntimeTestCase::prepareLateInstallMigrations($app);
+        InstallPackageAction::run(CapellCore::getPackage(TranslationManagerServiceProvider::$packageName));
 
-    $translator = resolve(TranslationAITranslator::class);
+        $translator = resolve(TranslationAITranslator::class);
 
-    expect(CapellCore::isPackageAvailable(AIOrchestratorServiceProvider::$packageName))->toBeTrue()
-        ->and($translator::class)->toBe(PrismTranslationAITranslator::class);
+        expect(CapellCore::isPackageAvailable(AIOrchestratorServiceProvider::$packageName))->toBeTrue()
+            ->and($translator::class)->toBe(PrismTranslationAITranslator::class);
 
-    $page = resolve(TranslationManagerPage::class);
-    $page->mount();
-    $page->sourceKey = 'app';
-    $page->refreshBrowser();
-    $page->selectedEntryKeys = ['title'];
+        $page = resolve(TranslationManagerPage::class);
+        $page->mount();
+        $page->sourceKey = 'app';
+        $page->refreshBrowser();
+        $page->selectedEntryKeys = ['title'];
 
-    $translateAction = translationManagerHeaderAction($page, 'translateSelected');
+        $translateAction = translationManagerHeaderAction($page, 'translateSelected');
 
-    expect($translateAction)->toBeInstanceOf(Action::class)
-        ->and($translateAction->isDisabled())->toBeFalse();
+        expect($translateAction->isVisible())->toBeTrue()
+            ->and($translateAction->isDisabled())->toBeFalse();
 
-    translationManagerRunAction($translateAction);
+        translationManagerRunAction($translateAction);
 
-    expect($page->pendingAiSuggestions)->toBe(['title' => 'Bonjour'])
-        ->and($provider->requests)->toHaveCount(1)
-        ->and(data_get($provider->requests, '0.messages.1.content'))->toContain('"target_locale":"fr"');
+        expect($page->pendingAiSuggestions)->toBe(['title' => 'Bonjour'])
+            ->and($provider->requests)->toHaveCount(1)
+            ->and(data_get($provider->requests, '0.messages.1.content'))->toContain('"target_locale":"fr"');
 
-    $page->acceptAiSuggestion('title');
-    $page->saveTranslations();
+        $page->acceptAiSuggestion('title');
+        $page->saveTranslations();
 
-    expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))
-        ->toBe(['title' => 'Bonjour']);
+        expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))
+            ->toBe(['title' => 'Bonjour']);
+    });
 });
 
 it('only saves server-authorized editable translation keys from Livewire state', function (): void {
@@ -290,14 +303,6 @@ it('drives locale creation duplication translation and save header actions from 
         'saveTranslations',
     ]);
 
-    foreach ($actions as $action) {
-        $actionSchema = $action->getSchema(Schema::make($page));
-
-        if ($actionSchema instanceof Schema) {
-            expect($actionSchema->getComponents())->toBeArray();
-        }
-    }
-
     translationManagerRunAction($actions->get('createLocale'), ['locale' => 'es']);
 
     expect($page->targetLocale)->toBe('es')
@@ -375,25 +380,6 @@ it('rejects pending AI suggestions without changing target values', function ():
         ->and($page->entries[0]['targetValue'])->toBe('');
 });
 
-it('renders a target-locale queue with one primary continuation action and labelled secondary disclosure', function (): void {
-    $view = File::get(__DIR__ . '/../../../resources/views/filament/pages/translation-manager.blade.php');
-    $pageSource = File::get(__DIR__ . '/../../../src/Filament/Pages/TranslationManagerPage.php');
-
-    expect($view)
-        ->toContain('translation_work_queue')
-        ->toContain('translate_into')
-        ->toContain('continue_translating')
-        ->toContain('advanced_filters_and_tools')
-        ->toContain('locale_tools')
-        ->toContain('file_tools')
-        ->toContain('ai_tools')
-        ->toContain('<details')
-        ->toContain('beforeUnload(event)')
-        ->toContain("mountAction('createLocale')");
-
-    expect($pageSource)->toContain("__('capell-translation-manager::package.save_file')");
-});
-
 it('continues to the first actionable file and key in deterministic priority order', function (): void {
     File::put($this->appLanguagePath . '/en/alpha.php', <<<'PHP'
 <?php
@@ -452,6 +438,7 @@ describe('Livewire translation journey', function (): void {
             use HasFactory;
 
             /** @param iterable<int, mixed> $abilities */
+            #[Override]
             public function can($abilities, $arguments = []): bool
             {
                 return true;
@@ -461,6 +448,27 @@ describe('Livewire translation journey', function (): void {
         $panel = Panel::make()->id('admin')->path('admin')->default();
         Filament::registerPanel($panel);
         Filament::setCurrentPanel($panel);
+    });
+
+    it('renders a target-locale queue with one primary continuation action and labelled secondary disclosure', function (): void {
+        $component = Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app');
+        $html = new RenderedHtml($component->html());
+        TranslationNavigationAssertions::assertGuards($component->html());
+
+        foreach (['translation_work_queue', 'translate_into', 'continue_translating', 'advanced_filters_and_tools', 'locale_tools', 'file_tools', 'ai_tools'] as $label) {
+            $component->assertSee(__('capell-translation-manager::package.' . $label));
+        }
+        $continuationButton = '//button[normalize-space(.)="' . __('capell-translation-manager::package.continue_translating') . '"]';
+        expect($html->count($continuationButton))->toBe(1);
+        expect($html->count('//details/summary'))->toBe(1);
+        expect($html->element('//details/summary')->textContent)
+            ->toContain(__('capell-translation-manager::package.advanced_filters_and_tools'));
+        expect($html->count('//label[.//span[normalize-space(.)="' . __('capell-translation-manager::package.translate_into') . '"]]//select'))->toBe(1);
+
+        $component->call($html->element($continuationButton)->getAttribute('wire:click'))
+            ->assertSee('Hello')
+            ->assertSee(__('capell-translation-manager::package.save_file'));
+        $component->call('mountAction', 'createLocale')->assertActionMounted('createLocale');
     });
 
     it('reveals the continued key in rendered Livewire output and requests focus every time', function (): void {
@@ -613,9 +621,17 @@ PHP);
  */
 function translationManagerHeaderActions(TranslationManagerPage $page): array
 {
-    $method = new ReflectionMethod(TranslationManagerPage::class, 'getHeaderActions');
+    if ($page->getCachedHeaderActions() === []) {
+        $page->cacheInteractsWithHeaderActions();
+    }
+    $actions = $page->getCachedHeaderActions();
+    $validated = [];
+    foreach ($actions as $action) {
+        throw_unless($action instanceof Action, RuntimeException::class, 'Each header action must be a Filament action.');
+        $validated[] = $action;
+    }
 
-    return $method->invoke($page);
+    return $validated;
 }
 
 function translationManagerHeaderAction(TranslationManagerPage $page, string $name): Action

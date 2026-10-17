@@ -27,6 +27,7 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
 
     public static string $packageName = 'capell-app/translation-manager';
 
+    #[Override]
     public function configurePackage(Package $package): void
     {
         $package
@@ -37,20 +38,19 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
             ->hasMigration('2026_07_19_120000_create_translation_scan_runs_table');
     }
 
+    #[Override]
     public function registeringPackage(): void
     {
         parent::registeringPackage();
 
         $this
             ->registerBindings();
+    }
 
-        $this->app->booted(function (): void {
-            if (! $this->isPackageInstalled()) {
-                return;
-            }
-
-            $this->registerOptionalAIOrchestratorIntegration();
-        });
+    #[Override]
+    protected function bootInstalledRuntime(): void
+    {
+        $this->registerOptionalAIOrchestratorIntegration();
     }
 
     #[Override]
@@ -77,12 +77,14 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
 
         $this->app->singleton(TranslationAITranslator::class, PrismTranslationAITranslator::class);
 
-        $this->app->afterResolving(
-            AIOrchestratorModuleRegistry::class,
-            function (AIOrchestratorModuleRegistry $registry): void {
-                $registry->register(new TranslationManagerAIOrchestratorModule);
-            },
-        );
+        $this->app->booted(function (): void {
+            $this->callAfterResolving(
+                AIOrchestratorModuleRegistry::class,
+                function (AIOrchestratorModuleRegistry $registry): void {
+                    $registry->register(new TranslationManagerAIOrchestratorModule);
+                },
+            );
+        });
 
         return $this;
     }

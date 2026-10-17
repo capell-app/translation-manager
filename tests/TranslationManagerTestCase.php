@@ -9,6 +9,7 @@ use BladeUI\Icons\BladeIconsServiceProvider;
 use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
+use Capell\Tests\Support\Concerns\IsolatesTestbenchPaths;
 use Capell\TranslationManager\Providers\AdminServiceProvider as TranslationManagerAdminServiceProvider;
 use Capell\TranslationManager\Providers\TranslationManagerServiceProvider;
 use Filament\Actions\ActionsServiceProvider;
@@ -30,6 +31,7 @@ use Spatie\LaravelData\LaravelDataServiceProvider;
 class TranslationManagerTestCase extends TestCase
 {
     use InteractsWithSession;
+    use IsolatesTestbenchPaths;
 
     protected function setUp(): void
     {
