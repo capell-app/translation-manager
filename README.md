@@ -29,19 +29,19 @@ Status details:
 
 Screenshot contract: `docs/screenshots.json`.
 
-![Illustrative translation manager page with source, locale, file, and filter selectors in the no-results state preview](docs/screenshots/translation-manager-page-empty-state.png)
+![Translation Manager work queue](docs/screenshots/translation-manager-page-empty-state.png)
 
 ![Translation comparison in the installed Translation Manager](docs/screenshots/translation-manager-comparison-grid.png)
 
-- Illustrative translation manager page with source, locale, file, and filter selectors in the no-results state preview (frontend, required evidence).
+- Translation Manager work queue (admin, required evidence).
 - Translation comparison in the installed Translation Manager (admin, required evidence).
-- Illustrative create locale modal preview (frontend, required evidence).
-- Illustrative duplicate locale modal preview (frontend, required evidence).
-- Illustrative translate selected action visible with ai translator support preview (frontend, supplementary documentation fixture).
+- Create locale modal (admin, required evidence).
+- Duplicate locale modal (admin, required evidence).
+- Translate selected entries (admin, supplementary evidence).
 - Illustrative dirty and missing translation review state preview (frontend, supplementary documentation fixture).
-- Illustrative translation import and export actions preview (frontend, supplementary documentation fixture).
+- Import translations modal (admin, supplementary evidence).
 - Illustrative ai translation suggestion review preview (frontend, supplementary documentation fixture).
-- Illustrative locale publish readiness summary preview (frontend, supplementary documentation fixture).
+- Locale publish readiness (admin, supplementary evidence).
 
 ## Technical Shape
 
@@ -185,7 +185,7 @@ Screenshot contract: `docs/screenshots.json`.
 ## Quick Start
 
 1. Install the package: `composer require capell-app/translation-manager`.
-2. Open the package admin page or resource and verify Translation Manager is available.
+2. Open the package admin surface at `/admin/translation-manager` and confirm Translation Manager is available.
 
 ## Next Steps
 

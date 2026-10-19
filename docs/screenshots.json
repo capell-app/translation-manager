@@ -57,6 +57,10 @@
             "user": "admin",
             "beforeWait": [
                 {
+                    "type": "click",
+                    "selector": "summary:has-text(\"Advanced filters and tools\")"
+                },
+                {
                     "type": "waitForTimeout",
                     "timeout": 3000
                 },
@@ -87,6 +91,10 @@
             "scenario": "admin-form",
             "user": "admin",
             "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "summary:has-text(\"Advanced filters and tools\")"
+                },
                 {
                     "type": "waitForTimeout",
                     "timeout": 3000
@@ -163,6 +171,10 @@
             "scenario": "admin-form",
             "user": "admin",
             "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "summary:has-text(\"Advanced filters and tools\")"
+                },
                 {
                     "type": "waitForTimeout",
                     "timeout": 3000
