@@ -27,6 +27,7 @@ use Lorisleiva\Actions\ActionServiceProvider;
 use Orchestra\Testbench\TestCase;
 use Override;
 use Spatie\LaravelData\LaravelDataServiceProvider;
+use Spatie\Permission\PermissionServiceProvider;
 
 class TranslationManagerTestCase extends TestCase
 {
@@ -54,6 +55,7 @@ class TranslationManagerTestCase extends TestCase
             ActionServiceProvider::class,
             ActionsServiceProvider::class,
             LaravelDataServiceProvider::class,
+            PermissionServiceProvider::class,
             LivewireServiceProvider::class,
             FilamentServiceProvider::class,
             FormsServiceProvider::class,

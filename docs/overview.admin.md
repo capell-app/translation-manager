@@ -26,6 +26,7 @@ Go to **System > Translation Manager** in the admin. Access requires the same `M
 
 - Translation Manager writes PHP and JSON language files directly. The application language directory and package override directory must be writable and must persist across deployments.
 - There is no translation database, version history, automatic backup, or rollback. Keep the language files in version control or take a backup before a large import, locale creation, or duplication.
+- Unsaved edits are guarded before creating or duplicating a locale, including the current target. Stay here cancels without writing; Save and continue saves the edited file before running the requested operation. Creating or duplicating into an existing locale can overwrite its values, including values just saved.
 - Creating a locale writes blank values for every source string. Duplicating a locale copies every translation file from the chosen locale. These multi-file operations are synchronous and are not transactional, so restore from your backup if a write stops part-way through.
 - The configured source locale defaults to `en`. Integrity validation always uses that configured source locale, even if you select a different source locale in the editor, so keep the selection aligned when saving or importing translations.
 
@@ -42,6 +43,7 @@ If no sidecar exists, Translation Manager falls back to comparing file modificat
 
 - Export operates on the currently selected file and locale. Start from that export when handing translations to another person or system.
 - Import is pasted into the admin form; it is not a file-upload workflow. CSV requires `key` and `target_value` columns. XLIFF and PO imports expect the key conventions used by the corresponding exports.
+- Unsaved edits are guarded before import or reload. Save and continue writes edits first; Discard and continue replaces them only after a successful import; Stay here cancels the operation. Failed saves and imports keep the current entries.
 - Imported keys are merged into the selected target file. The importer does not restrict them to keys in the selected source file, so a wrong-file or foreign key can be added as an **Extra** entry. Check the imported and skipped counts, then review the file and readiness result.
 - Before any save or import is written, non-empty translations must retain source placeholders such as `:name`, the source number of plural separators, and any configured glossary term. A validation failure prevents that write.
 

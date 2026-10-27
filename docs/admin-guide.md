@@ -57,20 +57,20 @@ This guide is for editors who translate content and owners deciding which langua
 1. First choose the **Translate into** locale. Open **Advanced filters and tools** when you need a **Source**, **Source locale**, or translation **File**.
 2. To bring in translations for that selected file, use **Import translations**, choose **CSV**, **PO**, or **XLIFF**, then paste the translated contents into the form.
 3. To send out that selected file, use **Export CSV**, **Export PO**, or **Export XLIFF**.
-4. **Save this file** is the primary action. The page shows the number of unsaved entries and offers **Save and continue**, **Discard and continue**, or **Stay here** before locale, source, or file navigation.
+4. **Save this file** is the primary action. The page shows the number of unsaved entries and offers **Save and continue**, **Discard and continue**, or **Stay here** before locale, source, or file navigation, import, or reload. Import writes the selected file immediately after that decision. A failed save or import keeps the current edits; choose Stay here to cancel the pending operation.
 
 ## Rolling out Translation Manager (for owners)
 
 ### Turn on first
 
-- **One additional language, fully covered.** Pick your most important second language and complete it before adding more.
+- One additional language, fully covered. Pick your most important second language and complete it before adding more.
 
 ### Add when needed
 
-| Need                           | Enable                                              |
-| ------------------------------ | --------------------------------------------------- |
-| More languages                 | Additional locales, one at a time                   |
-| Work with external translators | **Export** and **Import** in their preferred format |
+| Need                           | Enable                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------ |
+| More languages                 | Additional locales, one at a time                                                          |
+| Work with external translators | **Export CSV**, **Export PO**, or **Export XLIFF**, then **Import** in the matching format |
 
 ### Don't enable yet
 

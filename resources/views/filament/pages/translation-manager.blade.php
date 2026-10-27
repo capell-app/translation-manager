@@ -251,6 +251,7 @@
         </x-filament::section>
 
         <details
+            wire:ignore.self
             class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.03]"
         >
             <summary
@@ -548,14 +549,31 @@
                             <tr
                                 class="text-left text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
                             >
-                                <th class="w-10 py-2"></th>
-                                <th class="w-56 py-2 pr-3">
+                                <th
+                                    scope="col"
+                                    class="w-10 py-2"
+                                >
+                                    <span
+                                        class="sr-only"
+                                        >{{ __('capell-translation-manager::package.select_entries') }}</span
+                                    >
+                                </th>
+                                <th
+                                    scope="col"
+                                    class="w-56 py-2 pr-3"
+                                >
                                     {{ __('capell-translation-manager::package.key') }}
                                 </th>
-                                <th class="w-1/3 py-2 pr-3">
+                                <th
+                                    scope="col"
+                                    class="w-1/3 py-2 pr-3"
+                                >
                                     {{ __('capell-translation-manager::package.source') }}
                                 </th>
-                                <th class="w-1/3 py-2">
+                                <th
+                                    scope="col"
+                                    class="w-1/3 py-2"
+                                >
                                     {{ __('capell-translation-manager::package.target') }}
                                 </th>
                             </tr>
@@ -575,6 +593,8 @@
                                     <td class="py-3 align-top">
                                         @if ($entry['editable'])
                                             <x-filament::input.checkbox
+                                                id="translation-select-{{ hash('xxh128', $sourceKey . ':' . $fileKey . ':' . $targetLocale . ':' . $entry['key']) }}"
+                                                aria-label="{{ __('capell-translation-manager::package.select_entry', ['key' => $entry['key'], 'locale' => $targetLocale]) }}"
                                                 value="{{ $entry['key'] }}"
                                                 wire:model.live="selectedEntryKeys"
                                             />
@@ -585,7 +605,7 @@
                                             class="text-xs break-words text-gray-700 dark:text-gray-300"
                                             >{{ $entry['key'] }}</code
                                         ><span
-                                            class="mt-1 block text-xs text-gray-500"
+                                            class="mt-1 block text-xs text-gray-500 dark:text-gray-400"
                                             >{{ __('capell-translation-manager::package.status_' . $entry['status']) }}</span
                                         >
                                     </td>
@@ -600,6 +620,8 @@
                                         @if ($entry['editable'])
                                             <x-filament::input.wrapper>
                                                 <textarea
+                                                    id="translation-edit-{{ hash('xxh128', $sourceKey . ':' . $fileKey . ':' . $targetLocale . ':' . $entry['key']) }}"
+                                                    aria-label="{{ __('capell-translation-manager::package.edit_entry', ['key' => $entry['key'], 'locale' => $targetLocale]) }}"
                                                     wire:model.defer="entries.{{ $entry['index'] }}.targetValue"
                                                     rows="3"
                                                     class="w-full border-0 bg-transparent text-sm outline-none focus:ring-0"

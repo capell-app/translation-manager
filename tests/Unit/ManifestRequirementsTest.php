@@ -23,15 +23,13 @@ use Capell\TranslationManager\Providers\TranslationManagerServiceProvider;
 
 it('declares translation workflow capabilities actions and admin page contribution', function (): void {
     $manifest = capell_json_file_array(__DIR__ . '/../../capell.json');
+    assertCapellPackageDescription('translation-manager', $manifest);
     $composer = capell_json_file_array(__DIR__ . '/../../composer.json');
     $screenshots = data_get($manifest, 'marketplace.screenshots', []);
 
     throw_unless(is_array($screenshots), RuntimeException::class, 'Translation Manager screenshots must be an array.');
 
-    expect(data_get($manifest, 'description'))->toContain('file-based editor for Laravel language files')
-        ->and(data_get($manifest, 'description'))->toContain('Pair it with AI Orchestrator')
-        ->and(data_get($manifest, 'description'))->toContain('with SEO Suite')
-        ->and(data_get($manifest, 'dependencies.supports'))->toContain('capell-app/ai-orchestrator', 'capell-app/seo-suite')
+    expect(data_get($manifest, 'dependencies.supports'))->toContain('capell-app/ai-orchestrator', 'capell-app/seo-suite')
         ->and(data_get($manifest, 'marketplace.summary'))->toBe('Manage Capell language files from one Filament page with side-by-side locale editing, missing and stale key checks, safe override writes, and optional reviewed AI drafting.')
         ->and(data_get($manifest, 'marketplace.description'))->toContain('Pair it with AI Orchestrator for reviewed translation drafts')
         ->and(data_get($manifest, 'marketplace.description'))->toContain('with SEO Suite when multilingual search teams need translation coverage')

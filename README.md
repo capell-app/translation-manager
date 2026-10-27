@@ -37,10 +37,10 @@ Screenshot contract: `docs/screenshots.json`.
 - Translation comparison in the installed Translation Manager (admin, required evidence).
 - Create locale modal (admin, required evidence).
 - Duplicate locale modal (admin, required evidence).
-- Translate selected entries (admin, supplementary evidence).
-- Illustrative dirty and missing translation review state preview (frontend, supplementary documentation fixture).
+- Translate a selected missing entry (admin, supplementary documentation fixture).
+- Changed and missing translations in the native review grid (admin, supplementary documentation fixture).
 - Import translations modal (admin, supplementary evidence).
-- Illustrative ai translation suggestion review preview (frontend, supplementary documentation fixture).
+- Review and accept a translation suggestion (admin, supplementary documentation fixture).
 - Locale publish readiness (admin, supplementary evidence).
 
 ## Technical Shape
@@ -105,6 +105,8 @@ Screenshot contract: `docs/screenshots.json`.
 - `TranslationCsvImportResultData`
 - `TranslationEntryData`
 - `TranslationFileData`
+- `TranslationImportData`
+- `TranslationLocaleOperationData`
 - `TranslationQueueItemData`
 - `TranslationSourceData`
 - `TranslationWriteData`
@@ -186,6 +188,12 @@ Screenshot contract: `docs/screenshots.json`.
 
 1. Install the package: `composer require capell-app/translation-manager`.
 2. Open the package admin surface at `/admin/translation-manager` and confirm Translation Manager is available.
+
+## Upgrading
+
+No manual steps between minor versions.
+
+Read [CHANGELOG.md](CHANGELOG.md) before upgrading.
 
 ## Next Steps
 

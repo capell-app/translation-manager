@@ -27,6 +27,8 @@ use Capell\TranslationManager\Contracts\TranslationAITranslator;
 use Capell\TranslationManager\Data\LocaleSummaryData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Data\TranslationFileData;
+use Capell\TranslationManager\Data\TranslationImportData;
+use Capell\TranslationManager\Data\TranslationLocaleOperationData;
 use Capell\TranslationManager\Data\TranslationSourceData;
 use Capell\TranslationManager\Models\TranslationScanRun;
 use Filament\Actions\Action;
@@ -36,6 +38,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Livewire\Attributes\Locked;
 use Override;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -81,6 +84,12 @@ final class TranslationManagerPage extends Page
 
     /** @var array<int, array{locale: string, fileCount: int, entryCount: int, missing: int, stale: int, changed: int, same: int, extra: int, fallback: int, ready: bool}> */
     public array $readinessMatrix = [];
+
+    #[Locked]
+    public ?TranslationImportData $pendingImport = null;
+
+    #[Locked]
+    public ?TranslationLocaleOperationData $pendingLocaleOperation = null;
 
     /** @var array<int, string> */
     public array $selectedEntryKeys = [];
@@ -213,11 +222,13 @@ final class TranslationManagerPage extends Page
 
     public function refreshBrowser(bool $forceReadinessScan = false): void
     {
-        $this->refreshLocales();
-        $this->refreshFiles();
-        $this->loadEntries();
-        $this->refreshReadinessMatrix(force: $forceReadinessScan);
-        $this->commitSelection();
+        if ($this->hasUnsavedChanges()) {
+            $this->pendingNavigation = ['property' => 'reload', 'value' => $forceReadinessScan ? '1' : null, 'label' => __('capell-translation-manager::package.reload_translations')];
+
+            return;
+        }
+
+        $this->reloadBrowser($forceReadinessScan);
     }
 
     public function refreshScanResults(): void
@@ -268,13 +279,18 @@ final class TranslationManagerPage extends Page
 
     public function discardChangesAndContinue(): void
     {
-        $this->loadEntries();
+        if (! in_array($this->pendingNavigation['property'] ?? null, ['import', 'localeOperation'], true)) {
+            $this->loadEntries();
+        }
+
         $this->applyPendingNavigation();
     }
 
     public function stayOnCurrentFile(): void
     {
         $this->pendingNavigation = null;
+        $this->pendingImport = null;
+        $this->pendingLocaleOperation = null;
         $this->refreshDirtyState();
     }
 
@@ -423,14 +439,9 @@ final class TranslationManagerPage extends Page
                         return;
                     }
 
-                    CreateLocaleFilesAction::run($this->sourceKey, (string) $data['locale'], $this->sourceLocale);
-                    $this->targetLocale = (string) $data['locale'];
-                    $this->refreshBrowser(forceReadinessScan: true);
-
-                    Notification::make()
-                        ->title(__('capell-translation-manager::package.locale_created'))
-                        ->success()
-                        ->send();
+                    $this->requestLocaleOperation(new TranslationLocaleOperationData(
+                        targetLocale: (string) $data['locale'],
+                    ));
                 }),
             Action::make('duplicateLocale')
                 ->label(__('capell-translation-manager::package.duplicate_locale'))
@@ -450,14 +461,10 @@ final class TranslationManagerPage extends Page
                         return;
                     }
 
-                    DuplicateLocaleAction::run($this->sourceKey, (string) $data['from_locale'], (string) $data['target_locale']);
-                    $this->targetLocale = (string) $data['target_locale'];
-                    $this->refreshBrowser(forceReadinessScan: true);
-
-                    Notification::make()
-                        ->title(__('capell-translation-manager::package.locale_duplicated'))
-                        ->success()
-                        ->send();
+                    $this->requestLocaleOperation(new TranslationLocaleOperationData(
+                        targetLocale: (string) $data['target_locale'],
+                        fromLocale: (string) $data['from_locale'],
+                    ));
                 }),
             Action::make('translateSelected')
                 ->label(__('capell-translation-manager::package.translate_selected'))
@@ -494,6 +501,7 @@ final class TranslationManagerPage extends Page
             Action::make('importTranslations')
                 ->label(__('capell-translation-manager::package.import_translations'))
                 ->icon(Heroicon::OutlinedArrowUpTray)
+                ->modalDescription(__('capell-translation-manager::package.import_writes_file'))
                 ->extraAttributes(['class' => 'hidden'])
                 ->schema([
                     Select::make('format')
@@ -512,7 +520,15 @@ final class TranslationManagerPage extends Page
                         ->columnSpanFull(),
                 ])
                 ->action(function (array $data): void {
-                    $this->importCurrentFile($data);
+                    $import = TranslationImportData::from($data);
+                    if ($this->hasUnsavedChanges()) {
+                        $this->pendingImport = $import;
+                        $this->pendingNavigation = ['property' => 'import', 'value' => null, 'label' => __('capell-translation-manager::package.import_translations')];
+
+                        return;
+                    }
+
+                    $this->importCurrentFile($import);
                 }),
             Action::make('publishReadiness')
                 ->label(__('capell-translation-manager::package.publish_readiness'))
@@ -536,6 +552,65 @@ final class TranslationManagerPage extends Page
                     $this->saveTranslations();
                 }),
         ];
+    }
+
+    private function requestLocaleOperation(TranslationLocaleOperationData $operation): void
+    {
+        if ($this->hasUnsavedChanges()) {
+            $this->pendingLocaleOperation = $operation;
+            $this->pendingNavigation = [
+                'property' => 'localeOperation',
+                'value' => $operation->targetLocale,
+                'label' => __('capell-translation-manager::package.target_locale'),
+            ];
+            $this->refreshDirtyState();
+
+            return;
+        }
+
+        $this->applyLocaleOperation($operation);
+    }
+
+    private function applyLocaleOperation(TranslationLocaleOperationData $operation): void
+    {
+        if ($this->sourceKey === null) {
+            return;
+        }
+
+        try {
+            if ($operation->fromLocale === null) {
+                CreateLocaleFilesAction::run($this->sourceKey, $operation->targetLocale, $this->sourceLocale);
+            } else {
+                DuplicateLocaleAction::run($this->sourceKey, $operation->fromLocale, $operation->targetLocale);
+            }
+        } catch (Throwable) {
+            Notification::make()
+                ->title(__('capell-translation-manager::package.locale_operation_failed'))
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $this->targetLocale = $operation->targetLocale;
+        $this->reloadBrowser();
+        $this->queueReadinessScan();
+
+        Notification::make()
+            ->title($operation->fromLocale === null
+                ? __('capell-translation-manager::package.locale_created')
+                : __('capell-translation-manager::package.locale_duplicated'))
+            ->success()
+            ->send();
+    }
+
+    private function reloadBrowser(bool $forceReadinessScan = false): void
+    {
+        $this->refreshLocales();
+        $this->refreshFiles();
+        $this->loadEntries();
+        $this->refreshReadinessMatrix(force: $forceReadinessScan);
+        $this->commitSelection();
     }
 
     private function loadSources(): void
@@ -673,24 +748,26 @@ final class TranslationManagerPage extends Page
         );
     }
 
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    private function importCurrentFile(array $data): void
+    private function importCurrentFile(TranslationImportData $data): bool
     {
         if ($this->sourceKey === null || $this->fileKey === null || $this->targetLocale === null) {
-            return;
+            return false;
         }
 
-        $contents = (string) ($data['contents'] ?? '');
-        $format = (string) ($data['format'] ?? 'csv');
-        $result = match ($format) {
-            'xliff' => ImportTranslationEntriesFromXliffAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
-            'po' => ImportTranslationEntriesFromPoAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
-            default => ImportTranslationEntriesFromCsvAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
-        };
+        $contents = $data->contents;
+        try {
+            $result = match ($data->format) {
+                'xliff' => ImportTranslationEntriesFromXliffAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
+                'po' => ImportTranslationEntriesFromPoAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
+                default => ImportTranslationEntriesFromCsvAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
+            };
+        } catch (Throwable) {
+            Notification::make()->title(__('capell-translation-manager::package.import_failed'))->danger()->send();
 
-        $this->refreshBrowser(forceReadinessScan: true);
+            return false;
+        }
+
+        $this->reloadBrowser(forceReadinessScan: true);
 
         Notification::make()
             ->title(__('capell-translation-manager::package.imported', [
@@ -699,6 +776,8 @@ final class TranslationManagerPage extends Page
             ]))
             ->success()
             ->send();
+
+        return true;
     }
 
     private function notifyCurrentPublishReadiness(): void
@@ -990,6 +1069,9 @@ final class TranslationManagerPage extends Page
 
     private function commitSelection(): void
     {
+        $this->pendingNavigation = null;
+        $this->pendingImport = null;
+        $this->pendingLocaleOperation = null;
         $this->refreshDirtyState();
         $this->rememberSelection();
         $this->committedSelection = [
@@ -1032,6 +1114,23 @@ final class TranslationManagerPage extends Page
         }
 
         $navigation = $this->pendingNavigation;
+        if ($navigation['property'] === 'localeOperation') {
+            if ($this->pendingLocaleOperation instanceof TranslationLocaleOperationData) {
+                $this->applyLocaleOperation($this->pendingLocaleOperation);
+            }
+
+            return;
+        }
+
+        if ($navigation['property'] === 'import') {
+            if ($this->pendingImport instanceof TranslationImportData && $this->importCurrentFile($this->pendingImport)) {
+                $this->pendingImport = null;
+                $this->pendingNavigation = null;
+            }
+
+            return;
+        }
+
         $this->pendingNavigation = null;
         $this->focusedEntryKey = null;
 
@@ -1040,6 +1139,7 @@ final class TranslationManagerPage extends Page
             'sourceLocale' => $this->applySourceLocaleNavigation($navigation['value']),
             'targetLocale' => $this->applyTargetLocaleNavigation($navigation['value']),
             'fileKey' => $this->applyFileNavigation($navigation['value']),
+            'reload' => $this->reloadBrowser($navigation['value'] === '1'),
             default => null,
         };
     }

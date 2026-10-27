@@ -113,48 +113,92 @@
         },
         {
             "id": "translation-manager-ai-translate-selected",
-            "title": "Translate selected entries.",
+            "title": "Translate a selected missing entry.",
             "package": "translation-manager",
             "surface": "admin",
             "targetType": "admin-surface",
             "target": "/translation-manager",
             "url": "/translation-manager",
             "required": false,
-            "notes": "The real Translate selected action opened on the Translation Manager page.",
+            "notes": "Native selected-entry action showing its pending French suggestion with real Accept/Reject controls. Uses an explicitly guarded private writable fixture and deterministic translator; no live provider call and no file save.",
             "useCase": "An administrator sends selected entries for AI-assisted translation.",
             "screenshotPath": "packages/translation-manager/docs/screenshots/translation-manager-ai-translate-selected.png",
             "scenario": "admin-form",
             "user": "admin",
             "beforeWait": [
                 {
-                    "type": "waitForTimeout",
-                    "timeout": 3000
+                    "type": "click",
+                    "selector": "summary:has-text(\"Advanced filters and tools\")"
                 },
                 {
-                    "type": "scrollIntoView",
-                    "selector": "button.text-primary-600:has-text(\"Translate selected\")",
-                    "block": "center"
+                    "type": "selectOption",
+                    "selector": "select[wire\\:model\\.live=\"sourceKey\"]",
+                    "value": "app"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": "select[wire\\:model\\.live=\"targetLocale\"] option[value=\"fr\"]:checked"
+                },
+                {
+                    "type": "selectOption",
+                    "selector": "select[wire\\:model\\.live=\"filter\"]",
+                    "value": "missing"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": "tbody:not(:has(tr[data-translation-key=\"Book a workshop\"])) tr[data-translation-key=\"Plan your visit\"] input[type=\"checkbox\"]"
                 },
                 {
                     "type": "click",
-                    "selector": "button.text-primary-600:has-text(\"Translate selected\")"
+                    "selector": "tr[data-translation-key=\"Plan your visit\"] input[type=\"checkbox\"]"
+                },
+                {
+                    "type": "click",
+                    "selector": "button:has-text(\"Translate selected\"):visible"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": "tr[data-translation-key=\"Plan your visit\"] :text-is(\"Pr\u00e9parer votre visite\")"
                 }
             ],
-            "waitFor": "[role=\"dialog\"]"
+            "waitFor": "tr[data-translation-key=\"Plan your visit\"] :text-is(\"AI suggestion\")",
+            "fixtureKind": "native-deterministic-adapter",
+            "fullPage": false,
+            "colorSchemes": ["light", "dark"],
+            "interactions": [
+                {
+                    "type": "click",
+                    "selector": "summary:has-text(\"Advanced filters and tools\")"
+                }
+            ],
+            "frameSelector": "header:has(h1:text-is(\"Translation Manager\"))"
         },
         {
             "id": "translation-manager-dirty-and-missing-review",
-            "title": "Illustrative dirty and missing translation review state preview.",
+            "title": "Changed and missing translations in the native review grid.",
             "package": "translation-manager",
-            "surface": "frontend",
-            "targetType": "frontend-url",
-            "target": "/screenshot-fixtures/marketplace-translation-manager/translation-manager-dirty-and-missing-review",
-            "url": "/screenshot-fixtures/marketplace-translation-manager/translation-manager-dirty-and-missing-review",
+            "surface": "admin",
+            "targetType": "admin-route",
+            "target": "/screenshot-fixtures/translation-manager/comparison",
+            "url": "/screenshot-fixtures/translation-manager/comparison",
             "required": false,
-            "notes": "Illustrative deterministic fixture, not a live Filament resource capture. Seed a source locale update after a target locale was translated so the grid shows both missing entries and stale/dirty target strings.",
+            "notes": "Show the real authenticated English/French Application comparison grid with three Changed entries and one Missing entry from the guarded read-only workbench source. No source or target file is changed during capture.",
             "useCase": "A translator prioritises rows where source copy has changed or target copy has not been supplied yet.",
             "screenshotPath": "packages/translation-manager/docs/screenshots/translation-manager-dirty-and-missing-review.png",
-            "fixtureKind": "illustrative-workflow"
+            "fixtureKind": "documentation-outcome-fixture",
+            "scenario": "admin-form",
+            "user": "admin",
+            "evidenceKind": "installed-app-filament-capture",
+            "colorSchemes": ["light", "dark"],
+            "darkScreenshotPath": "packages/translation-manager/docs/screenshots/translation-manager-dirty-and-missing-review-dark.png",
+            "fullPage": true,
+            "waitFor": "tr[wire\\:key^=\"translation-entry-\"]:has-text(\"Plan your visit\"):has-text(\"Missing\")",
+            "beforeWait": [
+                {
+                    "type": "waitFor",
+                    "selector": "tr[wire\\:key^=\"translation-entry-\"]:has-text(\"Book a workshop\"):has-text(\"Changed\")"
+                }
+            ]
         },
         {
             "id": "translation-manager-import-export-actions",
@@ -193,17 +237,73 @@
         },
         {
             "id": "translation-manager-ai-suggestion-review",
-            "title": "Illustrative ai translation suggestion review preview.",
+            "title": "Review and accept a translation suggestion.",
             "package": "translation-manager",
-            "surface": "frontend",
-            "targetType": "frontend-url",
-            "target": "/screenshot-fixtures/marketplace-translation-manager/translation-manager-ai-suggestion-review",
-            "url": "/screenshot-fixtures/marketplace-translation-manager/translation-manager-ai-suggestion-review",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "/translation-manager",
+            "url": "/translation-manager",
             "required": false,
-            "notes": "Illustrative deterministic fixture, not a live Filament resource capture. Requires TranslationAITranslator or AI Orchestrator integration. Capture generated suggestions before they are accepted into editable target strings.",
+            "notes": "Native human approval: accept the deterministic French suggestion into the editable target, showing one unsaved entry; never save the file. Uses an explicitly guarded private writable fixture and the real editor/action.",
             "useCase": "A translator reviews AI-assisted copy and keeps human approval in the workflow.",
             "screenshotPath": "packages/translation-manager/docs/screenshots/translation-manager-ai-suggestion-review.png",
-            "fixtureKind": "illustrative-workflow"
+            "fixtureKind": "native-deterministic-adapter",
+            "scenario": "admin-form",
+            "user": "admin",
+            "fullPage": false,
+            "colorSchemes": ["light", "dark"],
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "summary:has-text(\"Advanced filters and tools\")"
+                },
+                {
+                    "type": "selectOption",
+                    "selector": "select[wire\\:model\\.live=\"sourceKey\"]",
+                    "value": "app"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": "select[wire\\:model\\.live=\"targetLocale\"] option[value=\"fr\"]:checked"
+                },
+                {
+                    "type": "selectOption",
+                    "selector": "select[wire\\:model\\.live=\"filter\"]",
+                    "value": "missing"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": "tbody:not(:has(tr[data-translation-key=\"Book a workshop\"])) tr[data-translation-key=\"Plan your visit\"] input[type=\"checkbox\"]"
+                },
+                {
+                    "type": "click",
+                    "selector": "tr[data-translation-key=\"Plan your visit\"] input[type=\"checkbox\"]"
+                },
+                {
+                    "type": "click",
+                    "selector": "button:has-text(\"Translate selected\"):visible"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": "tr[data-translation-key=\"Plan your visit\"] :text-is(\"Pr\u00e9parer votre visite\")"
+                },
+                {
+                    "type": "click",
+                    "selector": "tr[data-translation-key=\"Plan your visit\"] button:text-is(\"Accept\")"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": "[data-unsaved-entry-count=\"1\"]"
+                }
+            ],
+            "waitFor": "[data-unsaved-entry-count=\"1\"] tr[data-translation-key=\"Plan your visit\"] textarea",
+            "interactions": [
+                {
+                    "type": "click",
+                    "selector": "summary:has-text(\"Advanced filters and tools\")"
+                }
+            ],
+            "frameSelector": "header:has(h1:text-is(\"Translation Manager\"))"
         },
         {
             "id": "translation-manager-locale-publish-readiness",
@@ -214,27 +314,42 @@
             "target": "/translation-manager",
             "url": "/translation-manager",
             "required": false,
-            "notes": "The real Publish readiness action opened on the Translation Manager page.",
+            "notes": "Shows the native Application English/French locale readiness matrix after queuing its real scan. Uses the guarded read-only workbench translation fixture; the action does not open a dialog.",
             "useCase": "An administrator checks whether a locale is ready to publish.",
             "screenshotPath": "packages/translation-manager/docs/screenshots/translation-manager-locale-publish-readiness.png",
             "scenario": "admin-form",
             "user": "admin",
             "beforeWait": [
                 {
-                    "type": "waitForTimeout",
-                    "timeout": 3000
+                    "type": "click",
+                    "selector": "summary:has-text(\"Advanced filters and tools\")"
                 },
                 {
-                    "type": "scrollIntoView",
-                    "selector": "button.text-primary-600:has-text(\"Publish readiness\")",
-                    "block": "center"
+                    "type": "selectOption",
+                    "selector": "select[wire\\:model\\.live=\"sourceKey\"]",
+                    "value": "app"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": "select[wire\\:model\\.live=\"targetLocale\"] option[value=\"fr\"]:checked"
                 },
                 {
                     "type": "click",
-                    "selector": "button.text-primary-600:has-text(\"Publish readiness\")"
+                    "selector": "button:has-text(\"Publish readiness\"):visible"
                 }
             ],
-            "waitFor": "[role=\"dialog\"]"
+            "waitFor": ".fi-section:has(h2:has-text(\"Translation work queue\")) div.rounded-lg:has(div.font-medium:text-is(\"fr\"))",
+            "fullPage": false,
+            "frameSelector": ".fi-section:has(h2:has-text(\"Translation work queue\"))",
+            "interactions": [
+                {
+                    "type": "click",
+                    "selector": "summary:has-text(\"Advanced filters and tools\")"
+                }
+            ]
         }
+    ],
+    "fixtureCommands": [
+        "capell:screenshot-admin-fixture --package=translation-manager"
     ]
 }

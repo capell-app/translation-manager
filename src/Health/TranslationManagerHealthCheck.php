@@ -63,7 +63,7 @@ final class TranslationManagerHealthCheck implements ChecksExtensionHealth
             && class_exists(AdminServiceProvider::class);
 
         return new DoctorCheckResultData(
-            label: 'Translation Manager admin surface',
+            label: 'Translation Manager: admin tools available',
             passed: $available,
             message: $available
                 ? 'The translation manager page, contribution, and providers are available.'
@@ -71,6 +71,7 @@ final class TranslationManagerHealthCheck implements ChecksExtensionHealth
             remediation: $available
                 ? null
                 : 'Ensure Translation Manager is installed with its runtime and admin providers.',
+            id: 'legacy.translation.manager.admin.surface',
         );
     }
 
@@ -82,7 +83,7 @@ final class TranslationManagerHealthCheck implements ChecksExtensionHealth
         $unresolvableBindings = $this->unresolvableBindings();
 
         return new DoctorCheckResultData(
-            label: 'Translation Manager service bindings',
+            label: 'Translation Manager: services available',
             passed: $unresolvableBindings === [],
             message: $unresolvableBindings === []
                 ? 'The translation source resolver, file store, and AI translator contracts are resolvable.'
@@ -90,6 +91,7 @@ final class TranslationManagerHealthCheck implements ChecksExtensionHealth
             remediation: $unresolvableBindings === []
                 ? null
                 : 'Ensure TranslationManagerServiceProvider registers the translation manager contracts.',
+            id: 'legacy.translation.manager.service.bindings',
         );
     }
 
@@ -101,7 +103,7 @@ final class TranslationManagerHealthCheck implements ChecksExtensionHealth
         $readable = $this->isConfigurationReadable();
 
         return new DoctorCheckResultData(
-            label: 'Translation Manager configuration',
+            label: 'Translation Manager: settings valid',
             passed: $readable,
             message: $readable
                 ? 'The source locale, locale pattern, app source, and package write guard configuration are readable.'
@@ -109,6 +111,7 @@ final class TranslationManagerHealthCheck implements ChecksExtensionHealth
             remediation: $readable
                 ? null
                 : 'Ensure TranslationManagerServiceProvider merges config/capell-translation-manager.php.',
+            id: 'legacy.translation.manager.configuration',
         );
     }
 

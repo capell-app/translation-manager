@@ -23,12 +23,14 @@ use Capell\TranslationManager\Tests\TranslationManagerTestCase;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Panel;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User as AuthenticatableUser;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -181,9 +183,9 @@ it('filters saves and translates entries from the page state', function (): void
 it('switches to the Prism translator and persists an accepted translation when AI Orchestrator is available', function (): void {
     InstalledRuntimeState::run(function (): void {
         $app = InstalledRuntimeTestCase::boot(InstalledRuntimeParity::manifest('translation-manager'), false, function (Application $app): void {
-            $app->make('config')->set('capell-translation-manager.app_source.path', $this->appLanguagePath);
-            $app->make('config')->set('capell-translation-manager.package_paths', []);
-            $app->make('config')->set('capell-translation-manager.scan_paths', [$this->translationBasePath . '/views']);
+            $app->make(Repository::class)->set('capell-translation-manager.app_source.path', $this->appLanguagePath);
+            $app->make(Repository::class)->set('capell-translation-manager.package_paths', []);
+            $app->make(Repository::class)->set('capell-translation-manager.scan_paths', [$this->translationBasePath . '/views']);
         }, sourceRoot: dirname(__DIR__, 3));
         expect(resolve(TranslationAITranslator::class))->not->toBeInstanceOf(PrismTranslationAITranslator::class);
 
@@ -450,6 +452,192 @@ describe('Livewire translation journey', function (): void {
         Filament::setCurrentPanel($panel);
     });
 
+    it('guards import decisions without losing edits or writing on cancellation', function (string $decision): void {
+        File::put($this->appLanguagePath . '/en/messages.php', "<?php return ['title' => 'Hello', 'body' => 'Body'];");
+        File::put($this->appLanguagePath . '/fr/messages.php', "<?php return ['title' => '', 'body' => ''];");
+        $component = Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app');
+        $entries = $component->get('entries');
+        throw_unless(is_array($entries), RuntimeException::class, 'Expected translation entries.');
+        $titleIndex = array_search('title', array_column($entries, 'key'), true);
+        throw_unless(is_int($titleIndex), RuntimeException::class, 'Expected the title entry.');
+        $component->set("entries.{$titleIndex}.targetValue", 'Bonjour')
+            ->callAction('importTranslations', data: ['format' => 'csv', 'contents' => "key,target_value\nbody,Corps"])
+            ->assertSet("entries.{$titleIndex}.targetValue", 'Bonjour')
+            ->assertSet('unsavedEntryCount', 1);
+        expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => '', 'body' => '']);
+        $component->call($decision);
+        if ($decision === 'stayOnCurrentFile') {
+            $component->assertSet("entries.{$titleIndex}.targetValue", 'Bonjour')->assertSet('unsavedEntryCount', 1);
+            expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => '', 'body' => '']);
+        } else {
+            expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe([
+                'title' => $decision === 'saveAndContinue' ? 'Bonjour' : '', 'body' => 'Corps',
+            ]);
+            $component->assertSet('unsavedEntryCount', 0)->assertSet('pendingNavigation', null);
+        }
+    })->with(['stayOnCurrentFile', 'saveAndContinue', 'discardChangesAndContinue']);
+
+    it('preserves edited state when an import fails after choosing discard', function (): void {
+        Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+            ->set('entries.0.targetValue', 'Bonjour')
+            ->callAction('importTranslations', data: ['format' => 'csv', 'contents' => 'malformed'])
+            ->call('discardChangesAndContinue')
+            ->assertSet('entries.0.targetValue', 'Bonjour')->assertSet('unsavedEntryCount', 1);
+        expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => '']);
+    });
+
+    it('keeps import pending when saving invalid edits fails', function (): void {
+        File::put($this->appLanguagePath . '/en/messages.php', "<?php return ['title' => 'Hello :name'];");
+        Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+            ->set('entries.0.targetValue', 'Bonjour')
+            ->callAction('importTranslations', data: ['format' => 'csv', 'contents' => "key,target_value\ntitle,Salut :name"])
+            ->call('saveAndContinue')->assertSet('entries.0.targetValue', 'Bonjour')
+            ->assertSet('unsavedEntryCount', 1)->assertNotSet('pendingNavigation', null);
+        expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => '']);
+    });
+
+    it('guards the reload after creating or duplicating a locale', function (string $action, array $data): void {
+        Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+            ->set('entries.0.targetValue', 'Bonjour')->callAction($action, data: $data)
+            ->assertSet('targetLocale', 'fr')->assertSet('entries.0.targetValue', 'Bonjour')
+            ->assertSet('unsavedEntryCount', 1)->call('saveAndContinue')->assertSet('targetLocale', 'de');
+        expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => 'Bonjour']);
+    })->with([['createLocale', ['locale' => 'de']], ['duplicateLocale', ['from_locale' => 'en', 'target_locale' => 'de']]]);
+
+    it('defers same-locale writes until the dirty-edit decision', function (string $action, string $decision): void {
+        File::put($this->appLanguagePath . '/fr/messages.php', "<?php return ['title' => 'Avant'];");
+        $data = $action === 'createLocale' ? ['locale' => 'fr'] : ['from_locale' => 'en', 'target_locale' => 'fr'];
+        $component = Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+            ->set('entries.0.targetValue', 'Bonjour')->callAction($action, data: $data)
+            ->assertSet('entries.0.targetValue', 'Bonjour')->assertSet('unsavedEntryCount', 1)
+            ->assertNotSet('pendingNavigation', null);
+        expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => 'Avant']);
+
+        $component->call($decision)->assertSet('pendingNavigation', null);
+        if ($decision === 'stayOnCurrentFile') {
+            $component->assertSet('entries.0.targetValue', 'Bonjour')->assertSet('unsavedEntryCount', 1);
+            expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => 'Avant']);
+        } else {
+            // Continuing explicitly runs the requested blank/copy operation, including its overwrite semantics.
+            $expected = $action === 'createLocale' ? '' : 'Hello';
+            $component->assertSet('entries.0.targetValue', $expected)->assertSet('unsavedEntryCount', 0);
+            expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => $expected]);
+        }
+    })->with(['createLocale', 'duplicateLocale'])->with(['stayOnCurrentFile', 'saveAndContinue', 'discardChangesAndContinue']);
+
+    it('refreshes rendered locale options only after an authorised locale write', function (string $action, string $decision): void {
+        $data = $action === 'createLocale' ? ['locale' => 'de'] : ['from_locale' => 'fr', 'target_locale' => 'de'];
+        $component = Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app');
+        if ($decision !== 'clean') {
+            $component->set('entries.0.targetValue', 'Bonjour');
+        }
+
+        $component->callAction($action, data: $data);
+        if ($decision !== 'clean') {
+            expect(File::exists($this->appLanguagePath . '/de/messages.php'))->toBeFalse();
+            $component->call($decision);
+        }
+
+        $html = new RenderedHtml($component->html());
+        if ($decision === 'stayOnCurrentFile') {
+            expect($html->count('//select/option[@value="de"]'))->toBe(0)
+                ->and(File::exists($this->appLanguagePath . '/de/messages.php'))->toBeFalse();
+            $component->assertSet('entries.0.targetValue', 'Bonjour');
+        } else {
+            expect($html->count('//select/option[@value="de"]'))->toBeGreaterThan(0);
+            $expectedSource = $decision === 'saveAndContinue' ? 'Bonjour' : '';
+            $expectedTarget = $action === 'createLocale' ? '' : $expectedSource;
+            $component->assertSet('targetLocale', 'de')->assertSet('entries.0.targetValue', $expectedTarget);
+            expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => $expectedSource])
+                ->and(File::getRequire($this->appLanguagePath . '/de/messages.php'))->toBe(['title' => $expectedTarget]);
+        }
+    })->with(['createLocale', 'duplicateLocale'])->with(['clean', 'stayOnCurrentFile', 'saveAndContinue', 'discardChangesAndContinue']);
+
+    it('keeps a locale operation pending when saving invalid edits fails', function (string $action): void {
+        File::put($this->appLanguagePath . '/en/messages.php', "<?php return ['title' => 'Hello :name'];");
+        $data = $action === 'createLocale' ? ['locale' => 'de'] : ['from_locale' => 'en', 'target_locale' => 'de'];
+        Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+            ->set('entries.0.targetValue', 'Bonjour')->callAction($action, data: $data)
+            ->call('saveAndContinue')->assertSet('entries.0.targetValue', 'Bonjour')
+            ->assertSet('unsavedEntryCount', 1)->assertNotSet('pendingNavigation', null);
+        expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => ''])
+            ->and(File::exists($this->appLanguagePath . '/de/messages.php'))->toBeFalse();
+    })->with(['createLocale', 'duplicateLocale']);
+
+    it('preserves edited entries if a deferred locale operation cannot write', function (string $action): void {
+        $data = $action === 'createLocale' ? ['locale' => '../outside'] : ['from_locale' => 'en', 'target_locale' => '../outside'];
+        Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+            ->set('entries.0.targetValue', 'Bonjour')->callAction($action, data: $data)
+            ->call('discardChangesAndContinue')->assertSet('entries.0.targetValue', 'Bonjour')
+            ->assertSet('unsavedEntryCount', 1)->assertNotSet('pendingNavigation', null);
+        expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => '']);
+    })->with(['createLocale', 'duplicateLocale']);
+
+    it('locks the deferred locale operation against forged destinations', function (string $property): void {
+        $component = Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+            ->set('entries.0.targetValue', 'Bonjour')->callAction('createLocale', data: ['locale' => 'de']);
+        expect(fn () => $component->set($property, 'it'))->toThrow(CannotUpdateLockedPropertyException::class);
+        expect(File::exists($this->appLanguagePath . '/de/messages.php'))->toBeFalse()
+            ->and(File::exists($this->appLanguagePath . '/it/messages.php'))->toBeFalse();
+    })->with(['pendingLocaleOperation.targetLocale', 'pendingLocaleOperation.fromLocale']);
+
+    it('guards reload and preserves edits until an explicit discard', function (): void {
+        Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+            ->set('entries.0.targetValue', 'Bonjour')->call('refreshBrowser')
+            ->assertSet('entries.0.targetValue', 'Bonjour')->assertSet('unsavedEntryCount', 1)
+            ->call('stayOnCurrentFile')->assertSet('entries.0.targetValue', 'Bonjour')
+            ->call('refreshBrowser')->call('discardChangesAndContinue')
+            ->assertSet('entries.0.targetValue', '')->assertSet('unsavedEntryCount', 0);
+    });
+
+    it('names each editable row by key and target locale through Livewire updates', function (string $locale): void {
+        File::ensureDirectoryExists($this->appLanguagePath . '/' . $locale);
+        File::put($this->appLanguagePath . '/en/messages.php', "<?php return ['title' => 'Hello', 'body' => 'Body', 'footer' => 'Footer'];");
+        File::put($this->appLanguagePath . '/' . $locale . '/messages.php', "<?php return ['title' => '', 'body' => '', 'footer' => ''];");
+        $component = Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')->set('targetLocale', $locale);
+        $selected = [];
+        $ids = [];
+        foreach (['title', 'body', 'footer'] as $key) {
+            $html = new RenderedHtml($component->html());
+            foreach (['textarea' => 'edit_entry', 'input[@type="checkbox"]' => 'select_entry'] as $control => $label) {
+                $name = __('capell-translation-manager::package.' . $label, ['key' => $key, 'locale' => $locale]);
+                $element = $html->element('//' . $control . '[@aria-label="' . $name . '"]');
+                expect($element->getAttribute('aria-label'))->toContain($key)->toContain($locale);
+                $ids[] = $element->getAttribute('id');
+                if ($control === 'input[@type="checkbox"]' && $key !== 'footer') {
+                    $selected[] = $element->getAttribute('value');
+                }
+            }
+        }
+
+        expect(array_unique($ids))->toHaveCount(6)->not->toContain('');
+        app()->instance(TranslationAITranslator::class, new class implements TranslationAITranslator
+        {
+            #[Override]
+            public function available(): bool
+            {
+                return true;
+            }
+
+            /**
+             * @param  array<int, TranslationEntryData>  $entries
+             * @return array<int, AITranslationSuggestionData>
+             */
+            #[Override]
+            public function translateSelected(string $sourceLocale, string $targetLocale, array $entries): array
+            {
+                return array_map(static fn (TranslationEntryData $entry): AITranslationSuggestionData => new AITranslationSuggestionData($entry->key, 'Draft ' . $entry->key), $entries);
+            }
+        });
+        $component->set('selectedEntryKeys', $selected)->callAction('translateSelected')
+            ->assertSet('pendingAiSuggestions', ['title' => 'Draft title', 'body' => 'Draft body'])
+            ->call('continueTranslating')->assertDispatched('translation-manager-focus-entry');
+        $html = new RenderedHtml($component->html());
+        foreach ($ids as $id) {
+            expect($html->count('//*[@id="' . $id . '"]'))->toBe(1);
+        }
+    })->with(['fr', 'de']);
+
     it('renders a target-locale queue with one primary continuation action and labelled secondary disclosure', function (): void {
         $component = Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app');
         $html = new RenderedHtml($component->html());
@@ -458,6 +646,7 @@ describe('Livewire translation journey', function (): void {
         foreach (['translation_work_queue', 'translate_into', 'continue_translating', 'advanced_filters_and_tools', 'locale_tools', 'file_tools', 'ai_tools'] as $label) {
             $component->assertSee(__('capell-translation-manager::package.' . $label));
         }
+
         $continuationButton = '//button[normalize-space(.)="' . __('capell-translation-manager::package.continue_translating') . '"]';
         expect($html->count($continuationButton))->toBe(1);
         expect($html->count('//details/summary'))->toBe(1);
@@ -624,6 +813,7 @@ function translationManagerHeaderActions(TranslationManagerPage $page): array
     if ($page->getCachedHeaderActions() === []) {
         $page->cacheInteractsWithHeaderActions();
     }
+
     $actions = $page->getCachedHeaderActions();
     $validated = [];
     foreach ($actions as $action) {
@@ -667,6 +857,7 @@ function translationManagerRunAction(?Action $action, array $data = []): mixed
 it('loads populated screenshot comparison rows from the real file store', function (): void {
     config()->set('capell-translation-manager.app_source.path', dirname(__DIR__, 5) . '/workbench/resources/screenshots/translations');
     config()->set('capell-translation-manager.app_source.writable', false);
+
     session()->put('capell.translation-manager.selection', [
         'sourceKey' => 'app', 'sourceLocale' => 'en', 'targetLocale' => 'fr', 'fileKey' => 'json', 'filter' => 'all',
     ]);
