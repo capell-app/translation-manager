@@ -12,6 +12,7 @@ use Capell\TranslationManager\Data\TranslationFileData;
 use Capell\TranslationManager\Data\TranslationSourceData;
 use Capell\TranslationManager\Data\TranslationWriteData;
 use Capell\TranslationManager\Exceptions\TranslationFileWriteException;
+use Capell\TranslationManager\Exceptions\TranslationImportFormatException;
 use Closure;
 use Illuminate\Filesystem\Filesystem;
 use InvalidArgumentException;
@@ -295,16 +296,22 @@ final class FileTranslationFileStore implements TranslationFileStore
             $keyIndex = array_search('key', $headers, true);
             $targetValueIndex = array_search('target_value', $headers, true);
 
-            throw_if(! is_int($keyIndex) || ! is_int($targetValueIndex), InvalidArgumentException::class, 'Translation CSV must contain key and target_value columns.');
+            throw_if(! is_int($keyIndex) || ! is_int($targetValueIndex), TranslationImportFormatException::class, 'csv_headers');
 
             $values = [];
             $skippedCount = 0;
+            $diagnostics = [];
+            $position = 1;
 
             while (($row = fgetcsv($stream, escape: '\\')) !== false) {
+                $position++;
                 $key = $this->csvCell($row, $keyIndex);
 
                 if ($key === '') {
                     $skippedCount++;
+                    if (count($diagnostics) < 10) {
+                        $diagnostics[] = ['position' => $position, 'reason' => 'missing_key'];
+                    }
 
                     continue;
                 }
@@ -322,6 +329,7 @@ final class FileTranslationFileStore implements TranslationFileStore
             return new TranslationCsvImportResultData(
                 importedCount: count($values),
                 skippedCount: $skippedCount,
+                diagnostics: $diagnostics,
             );
         } finally {
             fclose($stream);
@@ -1226,7 +1234,7 @@ final class FileTranslationFileStore implements TranslationFileStore
     {
         $headers = fgetcsv($stream, escape: '\\');
 
-        throw_if($headers === false, InvalidArgumentException::class, 'Translation CSV must contain a header row.');
+        throw_if($headers === false, TranslationImportFormatException::class, 'csv_headers');
 
         return array_map(
             static fn (mixed $header): string => ltrim(is_string($header) ? $header : '', "\u{FEFF}"),

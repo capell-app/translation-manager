@@ -8,8 +8,10 @@ use Spatie\LaravelData\Data;
 
 final class TranslationCsvImportResultData extends Data
 {
+    /** @param list<array{position: int, reason: string}> $diagnostics */
     public function __construct(
         public readonly int $importedCount,
         public readonly int $skippedCount,
+        public readonly array $diagnostics = [],
     ) {}
 }

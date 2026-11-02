@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Capell\TranslationManager\Actions;
 
 use Capell\TranslationManager\Data\TranslationCsvImportResultData;
+use Capell\TranslationManager\Exceptions\TranslationImportFormatException;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
-use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -23,31 +23,37 @@ final class ImportTranslationEntriesFromXliffAction
     public function handle(string $sourceKey, string $fileKey, string $locale, string $contents): TranslationCsvImportResultData
     {
         if ($contents === '') {
-            throw new InvalidArgumentException('Translation XLIFF must not be empty.');
+            throw new TranslationImportFormatException('xliff_empty');
         }
 
         throw_if(
             preg_match('/<!DOCTYPE(?:\\s|>)/i', $contents) === 1,
-            InvalidArgumentException::class,
-            'Translation XLIFF must not declare a document type.',
+            TranslationImportFormatException::class,
+            'xliff_doctype',
         );
 
         $document = new DOMDocument;
         $loaded = @$document->loadXML($contents, LIBXML_NONET);
 
-        throw_if(! $loaded, InvalidArgumentException::class, 'Translation XLIFF must be valid XML.');
+        throw_if(! $loaded, TranslationImportFormatException::class, 'xliff_xml');
 
         $xpath = new DOMXPath($document);
         $units = $xpath->query('//*[local-name() = "trans-unit"]');
 
-        throw_if($units === false, InvalidArgumentException::class, 'Translation XLIFF could not be parsed.');
+        throw_if($units === false, TranslationImportFormatException::class, 'xliff_xml');
 
         $values = [];
         $skippedCount = 0;
+        $diagnostics = [];
+        $position = 0;
 
         foreach ($units as $unit) {
+            $position++;
             if (! $unit instanceof DOMElement) {
                 $skippedCount++;
+                if (count($diagnostics) < 10) {
+                    $diagnostics[] = ['position' => $position, 'reason' => 'missing_key'];
+                }
 
                 continue;
             }
@@ -57,6 +63,9 @@ final class ImportTranslationEntriesFromXliffAction
 
             if ($key === '' || ! $target instanceof DOMElement) {
                 $skippedCount++;
+                if (count($diagnostics) < 10) {
+                    $diagnostics[] = ['position' => $position, 'reason' => $key === '' ? 'missing_key' : 'missing_target'];
+                }
 
                 continue;
             }
@@ -69,6 +78,7 @@ final class ImportTranslationEntriesFromXliffAction
         return new TranslationCsvImportResultData(
             importedCount: count($values),
             skippedCount: $skippedCount,
+            diagnostics: $diagnostics,
         );
     }
 }

@@ -12,16 +12,21 @@ use Capell\Tests\Support\InstalledRuntimeState;
 use Capell\Tests\Support\InstalledRuntimeTestCase;
 use Capell\Tests\Support\RenderedHtml;
 use Capell\Tests\Support\TranslationNavigationAssertions;
+use Capell\TranslationManager\Actions\ImportTranslationEntriesFromCsvAction;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
 use Capell\TranslationManager\Data\AITranslationSuggestionData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Filament\Pages\TranslationManagerPage;
 use Capell\TranslationManager\Integrations\AI\PrismTranslationAITranslator;
 use Capell\TranslationManager\Providers\TranslationManagerServiceProvider;
+use Capell\TranslationManager\Tests\Fixtures\TranslationImportActor;
 use Capell\TranslationManager\Tests\Fixtures\TranslationPrismProviderFake;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Notifications\Livewire\Notifications;
+use Filament\Notifications\Notification;
+use Filament\Notifications\NotificationMailbox;
 use Filament\Panel;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -35,6 +40,18 @@ use Livewire\Livewire;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 uses(TranslationManagerTestCase::class);
+
+/** @return array<string, mixed> */
+function translationManagerLastNotice(): array
+{
+    resolve(NotificationMailbox::class)->flush();
+    $component = new Notifications;
+    $component->mount();
+    $component->pullNotificationsFromSession();
+    $notice = $component->notifications->last();
+
+    return $notice instanceof Notification ? $notice->toArray() : [];
+}
 
 beforeEach(function (): void {
     $this->translationBasePath = sys_get_temp_dir() . '/capell-translation-manager-page/' . Str::uuid()->toString();
@@ -871,4 +888,79 @@ it('loads populated screenshot comparison rows from the real file store', functi
     $this->assertNotNull($missing);
     expect($translated['targetValue'])->toBe('Réserver un atelier')
         ->and($missing['status'])->toBe('missing');
+});
+
+describe('import diagnostics on the page', function (): void {
+    beforeEach(function (): void {
+        $this->actingAs(new TranslationImportActor);
+        $panel = Panel::make()->id('admin')->path('admin')->default();
+        Filament::registerPanel($panel);
+        Filament::setCurrentPanel($panel);
+    });
+
+    it('reports saved counts and safe skipped entry positions for each format', function (string $format, string $contents, string $reason, int $position): void {
+        Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+            ->callAction('importTranslations', data: ['format' => $format, 'contents' => $contents]);
+        $notice = translationManagerLastNotice();
+        expect($notice['title'])->toBe(__('capell-translation-manager::package.imported', ['imported' => 1, 'skipped' => 1]))
+            ->and($notice['status'])->toBe('warning')
+            ->and($notice['body'])->toContain("Entry {$position}: {$reason}.")
+            ->and($notice['body'])->not->toContain('private-value')
+            ->and(((array) File::getRequire($this->appLanguagePath . '/fr/messages.php'))['title'])->toBe('Bonjour');
+    })->with([
+        ['csv', "key,target_value\ntitle,Bonjour\n,private-value", 'missing key', 3],
+        ['po', "msgctxt \"title\"\nmsgid \"Hello\"\nmsgstr \"Bonjour\"\n\nmsgid \"private-value\"\nmsgstr \"private-value\"", 'missing msgctxt key', 2],
+        ['xliff', '<xliff><trans-unit id="title"><target>Bonjour</target></trans-unit><trans-unit id="private-value"><source>private-value</source></trans-unit></xliff>', 'missing target', 2],
+    ]);
+
+    it('reports successful imports without skipped entries', function (string $format, string $contents): void {
+        Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+            ->callAction('importTranslations', data: ['format' => $format, 'contents' => $contents]);
+        $notice = translationManagerLastNotice();
+        expect($notice['title'])->toBe(__('capell-translation-manager::package.imported', ['imported' => 1, 'skipped' => 0]))
+            ->and($notice['status'])->toBe('success')
+            ->and(((array) File::getRequire($this->appLanguagePath . '/fr/messages.php'))['title'])->toBe('Bonjour');
+    })->with([
+        ['csv', "key,target_value\ntitle,Bonjour"],
+        ['po', "msgctxt \"title\"\nmsgid \"Hello\"\nmsgstr \"Bonjour\""],
+        ['xliff', '<xliff><trans-unit id="title"><target>Bonjour</target></trans-unit></xliff>'],
+    ]);
+
+    it('keeps unsaved edits and gives safe correction guidance for malformed input', function (string $format, string $contents, string $guidance): void {
+        Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+            ->set('entries.0.targetValue', 'Pending edit')
+            ->callAction('importTranslations', data: ['format' => $format, 'contents' => $contents])
+            ->call('discardChangesAndContinue')
+            ->assertSet('entries.0.targetValue', 'Pending edit')->assertSet('unsavedEntryCount', 1);
+        $notice = translationManagerLastNotice();
+        expect($notice['title'])->toBe(__('capell-translation-manager::package.import_failed'))
+            ->and($notice['body'])->toContain($guidance)->not->toContain('private-value')
+            ->and(((array) File::getRequire($this->appLanguagePath . '/fr/messages.php'))['title'])->toBe('');
+    })->with([
+        ['csv', 'private-value', 'key and target_value'],
+        ['xliff', '<xliff>private-value', 'well-formed XML'],
+        ['xliff', '<!DOCTYPE xliff><xliff/>', 'document type'],
+        ['po', '# private-value', 'no entries'],
+    ]);
+
+    it('bounds diagnostic output while counting all skipped rows', function (): void {
+        $contents = "key,target_value\ntitle,Bonjour\n" . str_repeat(",private-value\n", 12);
+        Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+            ->callAction('importTranslations', data: ['format' => 'csv', 'contents' => $contents]);
+        $notice = translationManagerLastNotice();
+        expect($notice['title'])->toBe(__('capell-translation-manager::package.imported', ['imported' => 1, 'skipped' => 12]));
+        $body = $notice['body'];
+        expect($body)->toContain('Entry 12:')->not->toContain('Entry 13:')->not->toContain('private-value');
+    });
+
+    it('redacts unexpected import errors', function (): void {
+        $action = Mockery::mock(new ImportTranslationEntriesFromCsvAction);
+        app()->instance('LaravelActions:AsFake:' . ImportTranslationEntriesFromCsvAction::class, $action);
+        $action->shouldReceive('handle')->once()->andThrow(new RuntimeException('private-value'));
+        Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+            ->callAction('importTranslations', data: ['format' => 'csv', 'contents' => "key,target_value\ntitle,Bonjour"]);
+        $notice = translationManagerLastNotice();
+        expect($notice['title'])->toBe(__('capell-translation-manager::package.import_failed'))
+            ->and(json_encode($notice))->not->toContain('private-value');
+    });
 });

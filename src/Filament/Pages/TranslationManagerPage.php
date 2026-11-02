@@ -30,6 +30,7 @@ use Capell\TranslationManager\Data\TranslationFileData;
 use Capell\TranslationManager\Data\TranslationImportData;
 use Capell\TranslationManager\Data\TranslationLocaleOperationData;
 use Capell\TranslationManager\Data\TranslationSourceData;
+use Capell\TranslationManager\Exceptions\TranslationImportFormatException;
 use Capell\TranslationManager\Models\TranslationScanRun;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -761,6 +762,18 @@ final class TranslationManagerPage extends Page
                 'po' => ImportTranslationEntriesFromPoAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
                 default => ImportTranslationEntriesFromCsvAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
             };
+        } catch (TranslationImportFormatException $exception) {
+            $message = match ($exception->reason) {
+                'csv_headers' => __('capell-translation-manager::package.import_csv_headers'),
+                'po_empty' => __('capell-translation-manager::package.import_po_empty'),
+                'xliff_empty' => __('capell-translation-manager::package.import_xliff_empty'),
+                'xliff_doctype' => __('capell-translation-manager::package.import_xliff_doctype'),
+                'xliff_xml' => __('capell-translation-manager::package.import_xliff_xml'),
+                default => __('capell-translation-manager::package.import_failed'),
+            };
+            Notification::make()->title(__('capell-translation-manager::package.import_failed'))->body($message)->danger()->send();
+
+            return false;
         } catch (Throwable) {
             Notification::make()->title(__('capell-translation-manager::package.import_failed'))->danger()->send();
 
@@ -769,13 +782,33 @@ final class TranslationManagerPage extends Page
 
         $this->reloadBrowser(forceReadinessScan: true);
 
-        Notification::make()
+        $details = [];
+        foreach (array_slice($result->diagnostics, 0, 10) as $diagnostic) {
+            if (! is_int($diagnostic['position']) || $diagnostic['position'] < 1) {
+                continue;
+            }
+            $reason = match ($diagnostic['reason']) {
+                'missing_key' => __('capell-translation-manager::package.import_missing_key'),
+                'missing_context' => __('capell-translation-manager::package.import_missing_context'),
+                'missing_target' => __('capell-translation-manager::package.import_missing_target'),
+                default => __('capell-translation-manager::package.import_invalid_entry'),
+            };
+            $details[] = __('capell-translation-manager::package.import_entry_reason', [
+                'position' => $diagnostic['position'], 'reason' => $reason,
+            ]);
+        }
+        if ($result->skippedCount > 0) {
+            $details[] = __('capell-translation-manager::package.import_correct_and_retry');
+        }
+
+        $notification = Notification::make()
             ->title(__('capell-translation-manager::package.imported', [
                 'imported' => $result->importedCount,
                 'skipped' => $result->skippedCount,
             ]))
-            ->success()
-            ->send();
+            ->body(implode(' ', $details));
+        $result->skippedCount > 0 ? $notification->warning() : $notification->success();
+        $notification->send();
 
         return true;
     }

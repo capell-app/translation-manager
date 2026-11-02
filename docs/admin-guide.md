@@ -57,7 +57,8 @@ This guide is for editors who translate content and owners deciding which langua
 1. First choose the **Translate into** locale. Open **Advanced filters and tools** when you need a **Source**, **Source locale**, or translation **File**.
 2. To bring in translations for that selected file, use **Import translations**, choose **CSV**, **PO**, or **XLIFF**, then paste the translated contents into the form.
 3. To send out that selected file, use **Export CSV**, **Export PO**, or **Export XLIFF**.
-4. **Save this file** is the primary action. The page shows the number of unsaved entries and offers **Save and continue**, **Discard and continue**, or **Stay here** before locale, source, or file navigation, import, or reload. Import writes the selected file immediately after that decision. A failed save or import keeps the current edits; choose Stay here to cancel the pending operation.
+4. After a partial import, review the saved and skipped counts and the first 10 skipped entry positions and reasons. Correct those entries and import again; no translation values are shown in the notice. CSV positions count logical records including the header; PO and XLIFF positions count entries or units.
+5. **Save this file** is the primary action. The page shows the number of unsaved entries and offers **Save and continue**, **Discard and continue**, or **Stay here** before locale, source, or file navigation, import, or reload. Import writes the selected file immediately after that decision. A failed save or import keeps the current edits; choose Stay here to cancel the pending operation.
 
 ## Rolling out Translation Manager (for owners)
 

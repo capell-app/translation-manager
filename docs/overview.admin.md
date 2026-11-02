@@ -44,7 +44,7 @@ If no sidecar exists, Translation Manager falls back to comparing file modificat
 - Export operates on the currently selected file and locale. Start from that export when handing translations to another person or system.
 - Import is pasted into the admin form; it is not a file-upload workflow. CSV requires `key` and `target_value` columns. XLIFF and PO imports expect the key conventions used by the corresponding exports.
 - Unsaved edits are guarded before import or reload. Save and continue writes edits first; Discard and continue replaces them only after a successful import; Stay here cancels the operation. Failed saves and imports keep the current entries.
-- Imported keys are merged into the selected target file. The importer does not restrict them to keys in the selected source file, so a wrong-file or foreign key can be added as an **Extra** entry. Check the imported and skipped counts, then review the file and readiness result.
+- Imported keys are merged into the selected target file. The importer does not restrict them to keys in the selected source file, so a wrong-file or foreign key can be added as an **Extra** entry. Check the imported and skipped counts and the first 10 skipped entry positions and reasons, correct them and import again, then review the file and readiness result. Format errors give correction guidance without showing translation values.
 - Before any save or import is written, non-empty translations must retain source placeholders such as `:name`, the source number of plural separators, and any configured glossary term. A validation failure prevents that write.
 
 ## Translation suggestions

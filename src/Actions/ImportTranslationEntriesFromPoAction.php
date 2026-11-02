@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Capell\TranslationManager\Actions;
 
 use Capell\TranslationManager\Data\TranslationCsvImportResultData;
-use InvalidArgumentException;
+use Capell\TranslationManager\Exceptions\TranslationImportFormatException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -18,13 +18,19 @@ final class ImportTranslationEntriesFromPoAction
     {
         $values = [];
         $skippedCount = 0;
+        $diagnostics = [];
+        $position = 0;
 
         foreach ($this->entries($contents) as $entry) {
+            $position++;
             $key = $entry['msgctxt'] ?? null;
             $value = $entry['msgstr'] ?? null;
 
             if (! is_string($key) || $key === '' || ! is_string($value)) {
                 $skippedCount++;
+                if (count($diagnostics) < 10) {
+                    $diagnostics[] = ['position' => $position, 'reason' => ! is_string($key) || $key === '' ? 'missing_context' : 'missing_target'];
+                }
 
                 continue;
             }
@@ -32,13 +38,14 @@ final class ImportTranslationEntriesFromPoAction
             $values[$key] = $value;
         }
 
-        throw_if($values === [] && $skippedCount === 0, InvalidArgumentException::class, 'Translation PO did not contain any entries.');
+        throw_if($values === [] && $skippedCount === 0, TranslationImportFormatException::class, 'po_empty');
 
         SaveTranslationEntriesAction::run($sourceKey, $fileKey, $locale, $values);
 
         return new TranslationCsvImportResultData(
             importedCount: count($values),
             skippedCount: $skippedCount,
+            diagnostics: $diagnostics,
         );
     }
 
