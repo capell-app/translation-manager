@@ -1,6 +1,6 @@
 # Using Translation Manager
 
-This guide is for editors who translate content and owners deciding which languages to support. Every step uses the labels you see on screen.
+This guide is for people who translate the words in the admin and in themes (buttons, labels, messages), and for owners deciding which languages to support. To translate a page's own text, open the page and use its language tabs instead. Every step uses the labels you see on screen.
 
 ## Using Translation Manager (editor how-to)
 
@@ -15,7 +15,7 @@ This guide is for editors who translate content and owners deciding which langua
 
 1. Go to **Translation Manager**.
 2. Open **Advanced filters and tools**, then choose **Create locale** and choose the language.
-3. Save. You can now translate content into it.
+3. Save. You can now translate the interface into it.
 
 ![A translator opens the Create locale action to add a new target locale.](screenshots/translation-manager-create-locale-modal.png)
 
@@ -86,9 +86,10 @@ This guide is for editors who translate content and owners deciding which langua
 
 ## Troubleshooting for editors
 
-| What you see                       | What it means                             | What to do                                                  |
-| ---------------------------------- | ----------------------------------------- | ----------------------------------------------------------- |
-| A page shows in the wrong language | It isn't translated for that locale       | Find it via the **Missing** filter and translate it         |
-| Coverage looks incomplete          | Some strings have no translation          | Work through the **Missing** list                           |
-| An import didn't apply             | The file format didn't match              | Re-export in the right format, then **Import contents**     |
-| Translations look out of date      | The source text changed after translating | Re-check the side-by-side editor and update the translation |
+| What you see                               | What it means                                 | What to do                                                                          |
+| ------------------------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| A page's own text is in the wrong language | The page has no translation for that language | Open the page, choose **Add translation**, pick the language and fill in its fields |
+| A button or label is in the wrong language | That interface string has no translation      | Find it with the **Missing** filter and translate it                                |
+| Coverage looks incomplete                  | Some strings have no translation              | Work through the **Missing** list                                                   |
+| An import didn't apply                     | The file format didn't match                  | Re-export in the right format, then **Import contents**                             |
+| Translations look out of date              | The source text changed after translating     | Re-check the side-by-side editor and update the translation                         |

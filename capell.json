@@ -20,7 +20,9 @@
         "conflicts": []
     },
     "providers": {
-        "metadata": [],
+        "metadata": [
+            "Capell\\TranslationManager\\Providers\\MigrationMetadataServiceProvider"
+        ],
         "install": [],
         "runtime": [
             "Capell\\TranslationManager\\Providers\\TranslationManagerServiceProvider"
@@ -157,6 +159,22 @@
     "marketplace": {
         "summary": "Manage Capell language files from one Filament page with side-by-side locale editing, missing and stale key checks, safe override writes, and optional reviewed AI drafting.",
         "description": "Translation Manager gives admins a file-based editor for Laravel language files in your Capell app and installed packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys, and create or duplicate locale files from the admin workflow. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Pair it with AI Orchestrator for reviewed translation drafts and with SEO Suite when multilingual search teams need translation coverage alongside SEO and AI-discovery workflows.",
+        "problem": "Our localisation team cannot easily find missing entries across language files.",
+        "outcome": "Our administrators have a workspace for comparing and maintaining Laravel locale files.",
+        "faq": [
+            {
+                "question": "Where are translations stored after editing?",
+                "answer": "Translations use Laravel language files and package overrides rather than translation tables."
+            },
+            {
+                "question": "How do administrators find gaps between locales?",
+                "answer": "The workspace compares locales and identifies missing or stale entries."
+            },
+            {
+                "question": "Can teams move locale files in or out?",
+                "answer": "Administrators can import and export locale files from the workspace."
+            }
+        ],
         "screenshots": [
             {
                 "path": "docs/assets/marketplace/extension-card.jpg",

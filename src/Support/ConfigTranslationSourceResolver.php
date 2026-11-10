@@ -141,6 +141,7 @@ final class ConfigTranslationSourceResolver implements TranslationSourceResolver
             return null;
         }
 
+        // capell-security-scan: local-stream reads a package's composer.json in the local installation
         $composer = json_decode((string) file_get_contents($composerPath), true);
 
         if (! is_array($composer) || ! isset($composer['name']) || ! is_string($composer['name'])) {

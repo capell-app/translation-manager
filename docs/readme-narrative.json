@@ -19,7 +19,7 @@
     },
     "whyItMatters": {
         "developers": {
-            "text": "A TranslationFileStore contract separates file access from focused comparison and write Actions, so storage behavior remains testable.",
+            "text": "A TranslationFileStore contract separates file access from focused comparison and write Actions, so storage behaviour remains testable.",
             "evidence": [
                 "src/Contracts/TranslationFileStore.php",
                 "src/Support/FileTranslationFileStore.php",

@@ -2,159 +2,52 @@
 
 <!-- prettier-ignore-start -->
 
-## What This Plugin Adds
-
-Translation Manager is an **Available**, **Schema-owning** Capell package in the **Capell Publishing** product group. It ships as `capell-app/translation-manager` and extends these surfaces: admin.
+## What It Does
 
 Translation Manager adds an admin workspace for comparing Laravel locales, finding missing or stale entries, and creating, duplicating, importing, exporting, or saving translation files. It works through file storage rather than adding translation tables.
 
+- **Price and availability:** Check current availability and price on the [Capell Marketplace listing](https://capell.app/extensions/translation-manager).
+- **Licence:** Check the licence terms on the [Capell Marketplace listing](https://capell.app/extensions/translation-manager).
+- **Requires:** `PHP ^8.4`, `capell-app/admin ^1.0.66`, `capell-app/core ^1.0.75`, `lorisleiva/laravel-actions ^2.8`, `spatie/laravel-data ^4.5`, `spatie/laravel-package-tools ^1.14.1`.
+- **Install:** `composer require capell-app/translation-manager`.
+
 Administrators can compare locale coverage, edit entries, and manage locale files from one Filament page.
 
-Status details:
+## Who It Is For
 
-- Status: Available
-- Tier: free
-- Bundle: publishing
-- Composer package: `capell-app/translation-manager`
-- Namespace: `Capell\TranslationManager`
-- Theme key: not applicable
-
-## Why It Matters
-
-**For developers:** A TranslationFileStore contract separates file access from focused comparison and write Actions, so storage behavior remains testable.
+**For developers:** A TranslationFileStore contract separates file access from focused comparison and write Actions, so storage behaviour remains testable.
 
 **For teams:** Content and localization teams can close locale gaps while keeping changes in normal Laravel language files and package overrides.
 
-## Screens And Workflow
+## Quick Start
 
-Screenshot contract: `docs/screenshots.json`.
+1. Install the package: `composer require capell-app/translation-manager`.
+2. Open the package admin surface at `/admin/translation-manager` and confirm Translation Manager is available.
+
+## Configure
+
+- **Configuration files:** `config/capell-translation-manager.php`.
+
+## Limits And Pitfalls
+
+- Install the required Capell packages at the versions in `composer.json`: `capell-app/admin ^1.0.66`, `capell-app/core ^1.0.75`.
+- Run migrations before opening package resources or public routes.
+
+## Screens And Workflow
 
 ![Translation Manager work queue](docs/screenshots/translation-manager-page-empty-state.png)
 
 ![Translation comparison in the installed Translation Manager](docs/screenshots/translation-manager-comparison-grid.png)
 
-- Translation Manager work queue (admin, required evidence).
-- Translation comparison in the installed Translation Manager (admin, required evidence).
-- Create locale modal (admin, required evidence).
-- Duplicate locale modal (admin, required evidence).
-- Translate a selected missing entry (admin, supplementary documentation fixture).
-- Changed and missing translations in the native review grid (admin, supplementary documentation fixture).
-- Import translations modal (admin, supplementary evidence).
-- Review and accept a translation suggestion (admin, supplementary documentation fixture).
-- Locale publish readiness (admin, supplementary evidence).
-
-## Technical Shape
-
-### Service providers
-
-- `Capell\TranslationManager\Providers\TranslationManagerServiceProvider`
-- `Capell\TranslationManager\Providers\AdminServiceProvider`
-
-### Config files
-
-- `packages/translation-manager/config/capell-translation-manager.php`
-
-### Migrations
-
-- `packages/translation-manager/database/migrations/2026_07_19_120000_create_translation_scan_runs_table.php`
-
-### Models
-
-- `TranslationScanRun`
-
-### Filament classes
-
-- `TranslationManagerPage`
-
-### Extension contracts
-
-- `TranslationAITranslator`
-- `TranslationFileStore`
-- `TranslationSourceResolver`
-
-### Actions
-
-- `BuildLocalePublishReadinessAction`
-- `BuildTranslationMemorySuggestionsAction`
-- `BuildTranslationReadinessMatrixAction`
-- `CreateLocaleFilesAction`
-- `DuplicateLocaleAction`
-- `ExportTranslationEntriesToCsvAction`
-- `ExportTranslationEntriesToPoAction`
-- `ExportTranslationEntriesToXliffAction`
-- `FilterTranslationEntriesAction`
-- `FindNextTranslationWorkAction`
-- `ImportTranslationEntriesFromCsvAction`
-- `ImportTranslationEntriesFromPoAction`
-- `ImportTranslationEntriesFromXliffAction`
-- `ListInstalledLocalesAction`
-- `ListTranslationFilesAction`
-- `ListTranslationSourcesAction`
-- `LoadTranslationComparisonAction`
-- `QueueTranslationScanAction`
-- `SaveTranslationEntriesAction`
-- `ScanMissingTranslationKeysAction`
-- `TranslateSelectedEntriesAction`
-
-### Data objects
-
-- `AITranslationSuggestionData`
-- `LocalePublishReadinessData`
-- `LocaleSummaryData`
-- `MissingTranslationKeyData`
-- `TranslationCsvImportResultData`
-- `TranslationEntryData`
-- `TranslationFileData`
-- `TranslationImportData`
-- `TranslationLocaleOperationData`
-- `TranslationQueueItemData`
-- `TranslationSourceData`
-- `TranslationWriteData`
-
-### Jobs
-
-- `RunTranslationScanJob`
-
-### Manifest action API
-
-- `buildLocalePublishReadiness: Capell\TranslationManager\Actions\BuildLocalePublishReadinessAction`
-- `buildTranslationMemorySuggestions: Capell\TranslationManager\Actions\BuildTranslationMemorySuggestionsAction`
-- `createLocaleFiles: Capell\TranslationManager\Actions\CreateLocaleFilesAction`
-- `duplicateLocale: Capell\TranslationManager\Actions\DuplicateLocaleAction`
-- `exportTranslationEntriesToCsv: Capell\TranslationManager\Actions\ExportTranslationEntriesToCsvAction`
-- `exportTranslationEntriesToPo: Capell\TranslationManager\Actions\ExportTranslationEntriesToPoAction`
-- `exportTranslationEntriesToXliff: Capell\TranslationManager\Actions\ExportTranslationEntriesToXliffAction`
-- `importTranslationEntriesFromCsv: Capell\TranslationManager\Actions\ImportTranslationEntriesFromCsvAction`
-- `importTranslationEntriesFromPo: Capell\TranslationManager\Actions\ImportTranslationEntriesFromPoAction`
-- `importTranslationEntriesFromXliff: Capell\TranslationManager\Actions\ImportTranslationEntriesFromXliffAction`
-- `listInstalledLocales: Capell\TranslationManager\Actions\ListInstalledLocalesAction`
-- `listTranslationFiles: Capell\TranslationManager\Actions\ListTranslationFilesAction`
-- `listTranslationSources: Capell\TranslationManager\Actions\ListTranslationSourcesAction`
-- `loadTranslationComparison: Capell\TranslationManager\Actions\LoadTranslationComparisonAction`
-- `saveTranslationEntries: Capell\TranslationManager\Actions\SaveTranslationEntriesAction`
-- `scanMissingTranslationKeys: Capell\TranslationManager\Actions\ScanMissingTranslationKeysAction`
-- `translateSelectedEntries: Capell\TranslationManager\Actions\TranslateSelectedEntriesAction`
-
-### Manifest contributions
-
-- `admin-page: Capell\TranslationManager\Manifest\TranslationManagerPageContribution`
-
-### Health checks
-
-- `Capell\TranslationManager\Health\TranslationManagerHealthCheck`
-
-### Blade views
-
-- `packages/translation-manager/resources/views/filament/pages/translation-manager.blade.php`
-
-
-## Data Model
-
-- Required tables: `capell_translation_scan_runs`.
-- Models: `TranslationScanRun`.
-- Migration files: `2026_07_19_120000_create_translation_scan_runs_table.php`.
-- Migration impact: run host migrations through the package install flow before opening package surfaces.
-- Deletion/retention behaviour: Docs gap: migrations and manifest contributions do not prove a cascade, pruning command, or timed retention policy.
+- Translation Manager work queue (admin).
+- Translation comparison in the installed Translation Manager (admin).
+- Create locale modal (admin).
+- Duplicate locale modal (admin).
+- Translate a selected missing entry (admin).
+- Changed and missing translations in the native review grid (admin).
+- Import translations modal (admin).
+- Review and accept a translation suggestion (admin).
+- Locale publish readiness (admin).
 
 ## Install Impact
 
@@ -170,12 +63,6 @@ Screenshot contract: `docs/screenshots.json`.
 - Cache tags: none declared.
 - Commands: none declared.
 
-## Common Pitfalls
-
-- Keep required Capell packages on compatible v4 releases: `capell-app/admin`, `capell-app/core`.
-- Run migrations before opening package resources or public routes.
-- Review package configuration before production-like verification: `config/capell-translation-manager.php`.
-
 ## Troubleshooting
 
 | Symptom | Likely cause | Check | Fix |
@@ -183,11 +70,6 @@ Screenshot contract: `docs/screenshots.json`.
 | Package surface is missing after install | Provider or manifest is not loaded | Confirm `capell.json`, package `composer.json`, and provider registration | Reinstall the package, refresh Composer autoload, and clear host caches |
 | Admin screen or command fails on missing table | Package migrations have not run | Check the tables listed in `Data Model` | Run host migrations and rerun the focused package test |
 | Background work does not run | Queue worker or declared schedule is not active | Check the jobs and scheduled commands listed in `Technical Shape` | Start the queue worker or host scheduler, then run the focused command or package test |
-
-## Quick Start
-
-1. Install the package: `composer require capell-app/translation-manager`.
-2. Open the package admin surface at `/admin/translation-manager` and confirm Translation Manager is available.
 
 ## Upgrading
 
@@ -203,11 +85,11 @@ Read [CHANGELOG.md](CHANGELOG.md) before upgrading.
 - [Admin guide](docs/admin-guide.md)
 - Configuration files: [`config/capell-translation-manager.php`](config/capell-translation-manager.php).
 - [Troubleshooting](#troubleshooting)
-- [Screenshot contract](docs/screenshots.json)
+- [Developer reference](docs/reference.md)
 - [Marketplace assets](docs/assets/marketplace/)
 - [Capell content language plan](../../docs/CONTENT_LANGUAGE_PLAN.md)
 - [Capell documentation design system](../../docs/DESIGN_SYSTEM.md)
 - [Capell and package ERD notes](../../docs/erd/capell-and-package-erds.md)
-- Related packages: [Ai Orchestrator](../ai-orchestrator/README.md), [Seo Suite](../seo-suite/README.md).
+- Related packages: [AI Orchestrator](../ai-orchestrator/README.md), [SEO Suite](../seo-suite/README.md).
 
 <!-- prettier-ignore-end -->

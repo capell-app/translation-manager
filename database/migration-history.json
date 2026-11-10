@@ -1,0 +1,11 @@
+{
+    "create_translation_scan_runs_table": {
+        "names": [
+            "2026_07_19_120000_create_translation_scan_runs_table"
+        ],
+        "sha256": [
+            "08af3d75d7d07b12b2a85568990badbf6fd2ae354a97dd55c08289a25c1fab43",
+            "c9b03407930bbbe28c14f70e9c85250b36d76c9656244f827ac5e4b2159f9d8c"
+        ]
+    }
+}

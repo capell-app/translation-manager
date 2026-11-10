@@ -408,6 +408,7 @@ final class FileTranslationFileStore implements TranslationFileStore
         $this->filesystem->ensureDirectoryExists(dirname($lockPath));
 
         try {
+            // capell-security-scan: local-stream reads a lock file beside the translation files
             $lock = fopen($lockPath, 'c+b');
         } catch (Throwable $exception) {
             throw TranslationFileWriteException::lockFailed($path, $exception);
