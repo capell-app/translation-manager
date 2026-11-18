@@ -13,5 +13,6 @@ final class TranslationCsvImportResultData extends Data
         public readonly int $importedCount,
         public readonly int $skippedCount,
         public readonly array $diagnostics = [],
+        public readonly bool $dryRun = false,
     ) {}
 }

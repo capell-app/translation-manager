@@ -15,8 +15,12 @@ final class ExportTranslationEntriesToXliffAction
     use AsFake;
     use AsObject;
 
-    public function handle(string $sourceKey, string $fileKey, string $sourceLocale, string $targetLocale): string
+    public function handle(string $sourceKey, string $fileKey, string $sourceLocale, string $targetLocale, string $version = '1.2'): string
     {
+        if ($version === '2.0') {
+            return $this->xliff2($sourceKey, $fileKey, $sourceLocale, $targetLocale);
+        }
+
         $document = new DOMDocument('1.0', 'UTF-8');
         $document->formatOutput = true;
 
@@ -38,6 +42,45 @@ final class ExportTranslationEntriesToXliffAction
 
         foreach (LoadTranslationComparisonAction::run($sourceKey, $fileKey, $sourceLocale, $targetLocale) as $entry) {
             $body->appendChild($this->translationUnit($document, $entry));
+        }
+
+        return $document->saveXML() ?: '';
+    }
+
+    private function xliff2(string $sourceKey, string $fileKey, string $sourceLocale, string $targetLocale): string
+    {
+        $document = new DOMDocument('1.0', 'UTF-8');
+        $document->formatOutput = true;
+
+        $xliff = $document->createElementNS('urn:oasis:names:tc:xliff:document:2.0', 'xliff');
+        $xliff->setAttribute('version', '2.0');
+        $xliff->setAttribute('srcLang', $sourceLocale);
+        $xliff->setAttribute('trgLang', $targetLocale);
+        $document->appendChild($xliff);
+
+        $file = $document->createElementNS('urn:oasis:names:tc:xliff:document:2.0', 'file');
+        $file->setAttribute('id', 'f1');
+        $file->setAttribute('original', $sourceKey . ':' . $fileKey);
+        $xliff->appendChild($file);
+
+        foreach (LoadTranslationComparisonAction::run($sourceKey, $fileKey, $sourceLocale, $targetLocale) as $entry) {
+            $unit = $document->createElementNS('urn:oasis:names:tc:xliff:document:2.0', 'unit');
+            $unit->setAttribute('id', $entry->key);
+            $unit->setAttribute('name', $entry->key);
+
+            $segment = $document->createElementNS('urn:oasis:names:tc:xliff:document:2.0', 'segment');
+            $segment->setAttribute('state', $entry->targetValue === null || $entry->targetValue === '' ? 'initial' : 'translated');
+
+            $source = $document->createElementNS('urn:oasis:names:tc:xliff:document:2.0', 'source');
+            $source->appendChild($document->createTextNode($entry->sourceValue ?? ''));
+            $segment->appendChild($source);
+
+            $target = $document->createElementNS('urn:oasis:names:tc:xliff:document:2.0', 'target');
+            $target->appendChild($document->createTextNode($entry->targetValue ?? ''));
+            $segment->appendChild($target);
+
+            $unit->appendChild($segment);
+            $file->appendChild($unit);
         }
 
         return $document->saveXML() ?: '';

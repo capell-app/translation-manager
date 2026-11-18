@@ -16,5 +16,6 @@ final class TranslationWriteData extends Data
         public readonly string $fileKey,
         public readonly string $locale,
         public readonly array $values,
+        public readonly ?string $sourceLocale = null,
     ) {}
 }

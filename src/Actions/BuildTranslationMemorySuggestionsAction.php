@@ -6,6 +6,7 @@ namespace Capell\TranslationManager\Actions;
 
 use Capell\TranslationManager\Data\AITranslationSuggestionData;
 use Capell\TranslationManager\Data\TranslationEntryData;
+use Illuminate\Support\Facades\Cache;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -13,6 +14,16 @@ final class BuildTranslationMemorySuggestionsAction
 {
     use AsFake;
     use AsObject;
+
+    private const string VERSION_KEY = 'capell-translation-manager:memory-version';
+
+    /**
+     * Every translation write moves the version on, so remembered suggestions never outlive an edit.
+     */
+    public static function forgetMemory(): void
+    {
+        Cache::forever(self::VERSION_KEY, self::memoryVersion() + 1);
+    }
 
     /**
      * @param  array<int, TranslationEntryData>  $entries
@@ -32,10 +43,35 @@ final class BuildTranslationMemorySuggestionsAction
             ->all();
     }
 
+    private static function memoryVersion(): int
+    {
+        $version = Cache::get(self::VERSION_KEY, 0);
+
+        return is_int($version) ? $version : 0;
+    }
+
+    private static function memoryCacheKey(string $sourceKey, string $sourceLocale, string $targetLocale): string
+    {
+        return implode(':', ['capell-translation-manager:memory', self::memoryVersion(), $sourceKey, $sourceLocale, $targetLocale]);
+    }
+
     /**
      * @return array<string, string>
      */
     private function memory(string $sourceKey, string $sourceLocale, string $targetLocale): array
+    {
+        /** @var array<string, string> */
+        return Cache::remember(
+            self::memoryCacheKey($sourceKey, $sourceLocale, $targetLocale),
+            now()->addMinutes(10),
+            fn (): array => $this->buildMemory($sourceKey, $sourceLocale, $targetLocale),
+        );
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function buildMemory(string $sourceKey, string $sourceLocale, string $targetLocale): array
     {
         $memory = [];
 

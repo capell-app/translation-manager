@@ -36,5 +36,10 @@ interface TranslationFileStore
 
     public function exportCsv(TranslationSourceData $source, string $fileKey, string $sourceLocale, string $targetLocale): string;
 
-    public function importCsv(TranslationSourceData $source, string $fileKey, string $locale, string $contents): TranslationCsvImportResultData;
+    public function importCsv(TranslationSourceData $source, string $fileKey, string $locale, string $contents, bool $dryRun = false): TranslationCsvImportResultData;
+
+    /**
+     * Whether a value passes the placeholder, plural and glossary checks a write would apply.
+     */
+    public function valueIsValid(TranslationSourceData $source, string $fileKey, string $locale, string $key, string $value): bool;
 }

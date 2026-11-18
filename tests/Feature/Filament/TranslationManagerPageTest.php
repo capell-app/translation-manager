@@ -16,10 +16,12 @@ use Capell\TranslationManager\Actions\ImportTranslationEntriesFromCsvAction;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
 use Capell\TranslationManager\Data\AITranslationSuggestionData;
 use Capell\TranslationManager\Data\TranslationEntryData;
+use Capell\TranslationManager\Enums\TranslationManagerPermission;
 use Capell\TranslationManager\Filament\Pages\TranslationManagerPage;
 use Capell\TranslationManager\Integrations\AI\PrismTranslationAITranslator;
 use Capell\TranslationManager\Providers\TranslationManagerServiceProvider;
 use Capell\TranslationManager\Tests\Fixtures\TranslationImportActor;
+use Capell\TranslationManager\Tests\Fixtures\TranslationPermissionActor;
 use Capell\TranslationManager\Tests\Fixtures\TranslationPrismProviderFake;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
 use Filament\Actions\Action;
@@ -28,6 +30,7 @@ use Filament\Notifications\Livewire\Notifications;
 use Filament\Notifications\Notification;
 use Filament\Notifications\NotificationMailbox;
 use Filament\Panel;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -54,6 +57,7 @@ function translationManagerLastNotice(): array
 }
 
 beforeEach(function (): void {
+    $this->actingAs(new TranslationImportActor);
     $this->translationBasePath = sys_get_temp_dir() . '/capell-translation-manager-page/' . Str::uuid()->toString();
     $this->appLanguagePath = $this->translationBasePath . '/app-lang';
 
@@ -204,6 +208,7 @@ it('switches to the Prism translator and persists an accepted translation when A
             $app->make(Repository::class)->set('capell-translation-manager.package_paths', []);
             $app->make(Repository::class)->set('capell-translation-manager.scan_paths', [$this->translationBasePath . '/views']);
         }, sourceRoot: dirname(__DIR__, 3));
+        auth()->setUser(new TranslationImportActor);
         expect(resolve(TranslationAITranslator::class))->not->toBeInstanceOf(PrismTranslationAITranslator::class);
 
         app()->register(AIOrchestratorServiceProvider::class);
@@ -315,6 +320,7 @@ it('drives locale creation duplication translation and save header actions from 
         'translateSelected',
         'exportCsv',
         'exportXliff',
+        'exportXliff2',
         'exportPo',
         'importTranslations',
         'publishReadiness',
@@ -535,8 +541,8 @@ describe('Livewire translation journey', function (): void {
             $component->assertSet('entries.0.targetValue', 'Bonjour')->assertSet('unsavedEntryCount', 1);
             expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => 'Avant']);
         } else {
-            // Continuing explicitly runs the requested blank/copy operation, including its overwrite semantics.
-            $expected = $action === 'createLocale' ? '' : 'Hello';
+            // Creating an existing locale keeps what it already holds; duplicating overwrites it with the source.
+            $expected = $action === 'createLocale' ? ($decision === 'saveAndContinue' ? 'Bonjour' : 'Avant') : 'Hello';
             $component->assertSet('entries.0.targetValue', $expected)->assertSet('unsavedEntryCount', 0);
             expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => $expected]);
         }
@@ -566,7 +572,7 @@ describe('Livewire translation journey', function (): void {
             $expectedTarget = $action === 'createLocale' ? '' : $expectedSource;
             $component->assertSet('targetLocale', 'de')->assertSet('entries.0.targetValue', $expectedTarget);
             expect(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => $expectedSource])
-                ->and(File::getRequire($this->appLanguagePath . '/de/messages.php'))->toBe(['title' => $expectedTarget]);
+                ->and(File::getRequire($this->appLanguagePath . '/de/messages.php'))->toBe($action === 'createLocale' ? [] : ['title' => $expectedTarget]);
         }
     })->with(['createLocale', 'duplicateLocale'])->with(['clean', 'stayOnCurrentFile', 'saveAndContinue', 'discardChangesAndContinue']);
 
@@ -963,4 +969,95 @@ describe('import diagnostics on the page', function (): void {
         expect($notice['title'])->toBe(__('capell-translation-manager::package.import_failed'))
             ->and(json_encode($notice))->not->toContain('private-value');
     });
+});
+
+describe('access and write permissions', function (): void {
+    beforeEach(function (): void {
+        $panel = Panel::make()->id('admin')->path('admin')->default();
+        Filament::registerPanel($panel);
+        Filament::setCurrentPanel($panel);
+    });
+
+    it('gates the page on the view permission', function (array $granted, bool $allowed): void {
+        /** @var list<string> $granted */
+        $this->actingAs(TranslationPermissionActor::granting($granted));
+
+        expect(TranslationManagerPage::canAccess())->toBe($allowed);
+    })->with([
+        'nothing' => [[], false],
+        'view' => [[TranslationManagerPermission::View->value], true],
+        'manage' => [[TranslationManagerPermission::Manage->value], true],
+    ]);
+
+    it('refuses writes from a viewer and hides the write actions', function (): void {
+        $this->actingAs(TranslationPermissionActor::granting([TranslationManagerPermission::View->value]));
+        $before = File::get($this->appLanguagePath . '/fr/messages.php');
+
+        $page = resolve(TranslationManagerPage::class);
+
+        foreach (['createLocale', 'duplicateLocale', 'importTranslations', 'saveTranslations', 'translateSelected'] as $name) {
+            expect(translationManagerHeaderAction($page, $name)->isVisible())->toBeFalse();
+        }
+
+        $page->mount();
+        $page->sourceKey = 'app';
+        $page->refreshBrowser();
+
+        expect(fn () => $page->saveTranslations())->toThrow(AuthorizationException::class)
+            ->and(File::get($this->appLanguagePath . '/fr/messages.php'))->toBe($before);
+    });
+
+    it('shows the write actions to a manager', function (): void {
+        $this->actingAs(TranslationPermissionActor::granting([TranslationManagerPermission::Manage->value]));
+        $page = resolve(TranslationManagerPage::class);
+
+        foreach (['createLocale', 'duplicateLocale', 'importTranslations', 'saveTranslations'] as $name) {
+            expect(translationManagerHeaderAction($page, $name)->isVisible())->toBeTrue();
+        }
+    });
+});
+
+it('names the failed check when a translation cannot be saved', function (): void {
+    $this->actingAs(new TranslationImportActor);
+    File::put($this->appLanguagePath . '/en/messages.php', "<?php return ['title' => 'Hello :name'];");
+    $panel = Panel::make()->id('admin')->path('admin')->default();
+    Filament::registerPanel($panel);
+    Filament::setCurrentPanel($panel);
+
+    Livewire::test(TranslationManagerPage::class)->set('sourceKey', 'app')
+        ->set('entries.0.targetValue', 'Bonjour')->call('saveTranslations');
+
+    $notice = translationManagerLastNotice();
+
+    expect($notice['title'])->toBe(__('capell-translation-manager::package.save_failed'))
+        ->and($notice['body'])->toBe(__('capell-translation-manager::package.validation_missing_placeholders', ['key' => 'title', 'placeholders' => ':name']));
+});
+
+it('does not offer AI translation in a web request that must queue provider calls', function (): void {
+    $provider = new PrismProvider(['require_queue_for_web' => true]);
+    $application = app();
+    $property = new ReflectionProperty(Application::class, 'isRunningInConsole');
+    $original = $property->getValue($application);
+    $property->setValue($application, false);
+
+    try {
+        expect($provider->canCallInThisContext())->toBeFalse()
+            ->and((new PrismTranslationAITranslator($provider))->available())->toBeFalse();
+    } finally {
+        $property->setValue($application, $original);
+    }
+
+    expect($provider->canCallInThisContext())->toBeTrue();
+});
+
+it('does not offer AI translation while the provider has no API key', function (): void {
+    config()->set('prism.providers.openai.api_key', '');
+    $provider = new PrismProvider(['provider' => 'openai']);
+
+    expect($provider->hasCredentials())->toBeFalse()
+        ->and((new PrismTranslationAITranslator($provider))->available())->toBeFalse();
+
+    config()->set('prism.providers.openai.api_key', 'sk-test');
+
+    expect($provider->hasCredentials())->toBeTrue();
 });

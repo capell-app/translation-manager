@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 return [
-    'ai_unavailable' => 'Install and enable AI Orchestrator to translate selected entries.',
+    'ai_unavailable' => 'Install and enable AI Orchestrator, add an API key for the AI provider and allow AI provider calls from the admin to translate selected entries.',
     'accept_suggestion' => 'Accept',
     'ai_suggestion' => 'AI suggestion',
     'application_source' => 'Application',
@@ -67,6 +67,17 @@ return [
     'import_missing_key' => 'missing key',
     'import_missing_context' => 'missing msgctxt key',
     'import_missing_target' => 'missing target',
+    'import_unknown_key' => 'key not in the source language',
+    'import_blank_value' => 'blank value',
+    'import_invalid_value' => 'fails the placeholder, plural or glossary check',
+    'import_preview' => 'Preview: :imported would be imported, :skipped skipped. Nothing was written.',
+    'import_file' => 'File',
+    'import_file_help' => 'Upload a CSV, XLIFF or PO file up to :size KB, or paste its contents below.',
+    'import_contents_help' => 'Used when no file is uploaded.',
+    'import_dry_run' => 'Preview only',
+    'import_dry_run_help' => 'Check the import and list what would be skipped, without writing anything.',
+    'import_too_large' => 'The import is larger than :size KB. Split it into smaller files and import each one.',
+    'export_xliff2' => 'Export XLIFF 2.0',
     'import_invalid_entry' => 'invalid entry',
     'import_entry_reason' => 'Entry :position: :reason.',
     'import_correct_and_retry' => 'Only the first 10 skipped entries are listed. Correct the entries and import again.',

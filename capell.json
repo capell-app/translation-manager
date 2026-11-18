@@ -6,7 +6,7 @@
     "kind": "package",
     "capellApiVersion": "^1.0",
     "version": "1.0.0",
-    "description": "Compare Laravel locales, find missing or stale entries, and create, duplicate, import, export or edit translation files from the admin. Store changes in language files and package overrides without adding translation tables.",
+    "description": "Translate interface wording in your language files from the admin, with missing and out-of-date entries flagged and CSV, PO and XLIFF export.",
     "product": {
         "group": "Capell Publishing",
         "tier": "free",
@@ -16,7 +16,7 @@
     "surfaces": ["admin"],
     "dependencies": {
         "requires": ["capell-app/admin", "capell-app/core"],
-        "supports": ["capell-app/ai-orchestrator", "capell-app/seo-suite"],
+        "supports": ["capell-app/ai-orchestrator"],
         "conflicts": []
     },
     "providers": {
@@ -71,23 +71,14 @@
         "translateSelectedEntries": "Capell\\TranslationManager\\Actions\\TranslateSelectedEntriesAction"
     },
     "settings": [],
-    "permissions": [],
+    "permissions": [
+        "View:TranslationManagerPage",
+        "Manage:TranslationManagerPage"
+    ],
     "capabilities": [
         "translation.ai.translate-selected",
-        "translation.files.csv-import-export",
         "translation.files.browse",
-        "translation.files.code-missing-key-scan",
         "translation.files.duplicate",
-        "translation.files.fallback-awareness",
-        "translation.files.glossary-validation",
-        "translation.files.integrity-validation",
-        "translation.files.override-merge",
-        "translation.files.publish-readiness",
-        "translation.files.readiness-dashboard",
-        "translation.files.po-import-export",
-        "translation.files.stale-detection",
-        "translation.files.translation-memory",
-        "translation.files.xliff-import-export",
         "translation.files.write"
     ],
     "security": {
@@ -121,8 +112,11 @@
             ]
         },
         "adminSurface": {
-            "authorization": "panel-auth",
-            "permissions": []
+            "authorization": "permissions",
+            "permissions": [
+                "View:TranslationManagerPage",
+                "Manage:TranslationManagerPage"
+            ]
         }
     },
     "performance": {
@@ -157,54 +151,62 @@
         "privateDocsRequested": true
     },
     "marketplace": {
-        "summary": "Manage Capell language files from one Filament page with side-by-side locale editing, missing and stale key checks, safe override writes, and optional reviewed AI drafting.",
-        "description": "Translation Manager gives admins a file-based editor for Laravel language files in your Capell app and installed packages, without migrations or new tables. Compare source and target locales side by side, spot missing and stale keys, and create or duplicate locale files from the admin workflow. Edits to package and vendor strings are written safely to Laravel's override paths, so upgrades never clobber your translations. Pair it with AI Orchestrator for reviewed translation drafts and with SEO Suite when multilingual search teams need translation coverage alongside SEO and AI-discovery workflows.",
-        "problem": "Our localisation team cannot easily find missing entries across language files.",
-        "outcome": "Our administrators have a workspace for comparing and maintaining Laravel locale files.",
+        "summary": "Compare language files side by side, fill gaps, create languages and exchange CSV, PO and XLIFF files with outside translators.",
+        "description": "Find and fill gaps in the interface wording of Capell, your theme and installed packages. See each language's missing, out-of-date and changed entries beside the original, edit and save them, and check whether a language is ready. Create or duplicate a language, and hand work to translators as CSV, PO or XLIFF.",
+        "problem": "Nobody can see which interface wording is missing or out of date in a language.",
+        "outcome": "Missing and out-of-date wording is flagged and edited in one admin page.",
         "faq": [
             {
-                "question": "Where are translations stored after editing?",
-                "answer": "Translations use Laravel language files and package overrides rather than translation tables."
+                "question": "Who can use Translation Manager?",
+                "answer": "Viewing and managing are separate permissions. Anyone with the view permission can open the page, and saving, importing, creating languages and AI drafts need the manage permission."
             },
             {
-                "question": "How do administrators find gaps between locales?",
-                "answer": "The workspace compares locales and identifies missing or stale entries."
+                "question": "Where do my edits end up?",
+                "answer": "In your site's language files, so the server needs a language folder it can write to and that survives site updates. Wording from packages is saved as your own copy, so package updates don't overwrite it."
             },
             {
-                "question": "Can teams move locale files in or out?",
-                "answer": "Administrators can import and export locale files from the workspace."
+                "question": "Does it translate page content?",
+                "answer": "No. Page content isn't handled here, so translate it on the language tabs of each page. This page covers button labels, form messages and menu text from the system, your theme and installed packages."
+            },
+            {
+                "question": "Can it draft translations with AI?",
+                "answer": "Yes, once AI Orchestrator is installed and enabled, an API key is added for the AI provider and calls from the admin are allowed. You accept or reject each suggestion before you save."
+            },
+            {
+                "question": "Can I send files to an outside translator?",
+                "answer": "Yes. Export CSV, PO or XLIFF files from the tools panel, then import the translated file back. Saving checks that placeholders, plural forms and any glossary terms still match the original."
             }
         ],
         "screenshots": [
             {
                 "path": "docs/assets/marketplace/extension-card.jpg",
-                "alt": "Translation Manager extension preview image",
-                "caption": "Translation Manager extension preview"
+                "alt": "Marketplace card for Translation Manager with two admin screens and the steps Compare, Draft and Save",
+                "caption": "The card summarises the workflow of comparing, drafting and saving translations."
             },
             {
                 "path": "docs/screenshots/translation-manager-page-empty-state.png",
-                "alt": "Illustrative translation Manager empty state with source and filter controls",
-                "caption": "Illustrative translation Manager empty state"
+                "alt": "Translation Manager page with a work queue of language cards showing missing, stale and changed entry counts",
+                "caption": "Each language shows how many entries are missing or changed, and whether it needs work."
             },
             {
                 "path": "docs/screenshots/translation-manager-comparison-grid.png",
-                "alt": "Illustrative translation Manager comparison grid with source and target values",
-                "caption": "Illustrative translation comparison grid"
+                "alt": "Side-by-side table of source wording and editable French translations, with a Needs work card for fr above it",
+                "caption": "Edit each translation next to its original wording, then save the file."
             },
             {
                 "path": "docs/screenshots/translation-manager-create-locale-modal.png",
-                "alt": "Illustrative translation Manager create locale workflow",
-                "caption": "Illustrative create locale workflow"
+                "alt": "Create locale dialog with an empty Locale field over the page, with import, export and readiness links below",
+                "caption": "New languages start from a short dialog, and the tools underneath cover import and export."
             },
             {
                 "path": "docs/screenshots/translation-manager-duplicate-locale-modal.png",
-                "alt": "Illustrative translation Manager duplicate locale workflow",
-                "caption": "Illustrative duplicate locale workflow"
+                "alt": "Duplicate locale dialog asking for a From locale and a Target locale, over the translation tools panel",
+                "caption": "Copy an existing language as the starting point for a new one."
             },
             {
                 "path": "docs/screenshots/translation-manager-ai-translate-selected.png",
-                "alt": "Illustrative translation Manager AI translate selected review workflow",
-                "caption": "Illustrative aI translate selected review"
+                "alt": "One missing French entry ticked, with a yellow AI suggestion box offering Accept and Reject under its target field",
+                "caption": "AI drafts wait for you to accept or reject them before anything is saved."
             }
         ],
         "categories": ["admin"]

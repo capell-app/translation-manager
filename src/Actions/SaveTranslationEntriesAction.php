@@ -18,7 +18,7 @@ final class SaveTranslationEntriesAction
     /**
      * @param  array<string, string|null>  $values
      */
-    public function handle(string $sourceKey, string $fileKey, string $locale, array $values): void
+    public function handle(string $sourceKey, string $fileKey, string $locale, array $values, ?string $sourceLocale = null): void
     {
         $source = resolve(TranslationSourceResolver::class)->source($sourceKey);
 
@@ -27,6 +27,7 @@ final class SaveTranslationEntriesAction
             fileKey: $fileKey,
             locale: $locale,
             values: $values,
+            sourceLocale: $sourceLocale,
         ));
     }
 }

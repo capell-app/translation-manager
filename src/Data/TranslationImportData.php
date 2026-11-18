@@ -15,5 +15,6 @@ final class TranslationImportData extends Data implements Wireable
     public function __construct(
         public readonly string $format,
         public readonly string $contents,
+        public readonly bool $dryRun = false,
     ) {}
 }

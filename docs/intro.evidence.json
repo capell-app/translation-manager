@@ -1,0 +1,90 @@
+[
+    {
+        "claim": "Button labels, form messages and menu text can be translated from one admin page, side by side with the original wording.",
+        "evidence": [
+            "src/Filament/Pages/TranslationManagerPage.php",
+            "src/Actions/LoadTranslationComparisonAction.php",
+            "resources/views/filament/pages/translation-manager.blade.php"
+        ]
+    },
+    {
+        "claim": "This wording lives in language files, and the page edits them for you.",
+        "evidence": [
+            "src/Support/FileTranslationFileStore.php",
+            "src/Actions/SaveTranslationEntriesAction.php"
+        ]
+    },
+    {
+        "claim": "Open Translations in the System menu and pick a language to see what is missing and what has gone out of date because the original wording was edited.",
+        "evidence": ["src/Support/FileTranslationFileStore.php"]
+    },
+    {
+        "claim": "It covers the wording built into the system, your theme and installed packages.",
+        "evidence": ["src/Support/ConfigTranslationSourceResolver.php"]
+    },
+    {
+        "claim": "Page content is translated on each page's language tabs.",
+        "evidence": [
+            "src/Support/FileTranslationFileStore.php",
+            "src/Actions/SaveTranslationEntriesAction.php"
+        ]
+    },
+    {
+        "claim": "The view permission opens the page, and changes need the manage permission.",
+        "evidence": [
+            "src/Filament/Pages/TranslationManagerPage.php",
+            "src/Support/TranslationManagerAuthorization.php",
+            "src/Enums/TranslationManagerPermission.php"
+        ]
+    },
+    {
+        "claim": "Because changes are written to your language files, the server needs a language folder it can write to and that is kept when the site is updated.",
+        "evidence": [
+            "src/Support/FileTranslationFileStore.php",
+            "src/Support/ConfigTranslationSourceResolver.php",
+            "src/Health/TranslationManagerHealthCheck.php"
+        ]
+    },
+    {
+        "claim": "A queue worker, a program on the server that handles background jobs, runs the readiness check.",
+        "evidence": [
+            "src/Actions/QueueTranslationScanAction.php",
+            "src/Jobs/RunTranslationScanJob.php"
+        ]
+    },
+    {
+        "claim": "Wording from packages is saved as your own copy, so a package update doesn't overwrite it.",
+        "evidence": [
+            "src/Support/ConfigTranslationSourceResolver.php",
+            "config/capell-translation-manager.php"
+        ]
+    },
+    {
+        "claim": "Saving checks that placeholders, plural forms and any glossary terms you have set still match the original.",
+        "evidence": [
+            "src/Support/FileTranslationFileStore.php",
+            "config/capell-translation-manager.php"
+        ]
+    },
+    {
+        "claim": "You can create a language, duplicate one, or export CSV, PO and XLIFF files for an outside translator and paste the translated file back in.",
+        "evidence": [
+            "src/Actions/ExportTranslationEntriesToCsvAction.php",
+            "src/Actions/ExportTranslationEntriesToPoAction.php",
+            "src/Actions/ExportTranslationEntriesToXliffAction.php",
+            "src/Actions/ImportTranslationEntriesFromCsvAction.php",
+            "src/Actions/ImportTranslationEntriesFromPoAction.php",
+            "src/Actions/ImportTranslationEntriesFromXliffAction.php",
+            "src/Filament/Pages/TranslationManagerPage.php"
+        ]
+    },
+    {
+        "claim": "Publish readiness marks each language as ready or not and shows how many entries are still missing or out of date.",
+        "evidence": [
+            "src/Actions/BuildLocalePublishReadinessAction.php",
+            "src/Actions/BuildTranslationReadinessMatrixAction.php",
+            "resources/views/filament/pages/translation-manager.blade.php",
+            "resources/lang/en/package.php"
+        ]
+    }
+]

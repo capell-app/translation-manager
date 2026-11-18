@@ -24,6 +24,7 @@ use Capell\TranslationManager\Data\TranslationCsvImportResultData;
 use Capell\TranslationManager\Data\TranslationEntryData;
 use Capell\TranslationManager\Data\TranslationWriteData;
 use Capell\TranslationManager\Exceptions\TranslationFileWriteException;
+use Capell\TranslationManager\Exceptions\TranslationValidationException;
 use Capell\TranslationManager\Support\FileTranslationFileStore;
 use Capell\TranslationManager\Support\LocaleValidator;
 use Capell\TranslationManager\Tests\Fixtures\CoordinatedTranslationFilesystem;
@@ -32,6 +33,7 @@ use Capell\TranslationManager\Tests\Fixtures\PackageTranslationFixtureServicePro
 use Capell\TranslationManager\Tests\Fixtures\PauseAfterTranslationPublishFilesystem;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Sleep;
@@ -289,22 +291,21 @@ it('keeps write coordination files outside translation sources', function (): vo
     expect(File::exists($targetPath . '.capell.lock'))->toBeFalse();
 });
 
-it('creates blank app locale files from source keys', function (): void {
+it('creates app locale files without blank values so missing strings fall back', function (): void {
     CreateLocaleFilesAction::run('app', 'es', 'en');
 
     $phpValues = require $this->appLanguagePath . '/es/messages.php';
     $jsonValues = json_decode(File::get($this->appLanguagePath . '/es.json'), true);
 
-    expect($phpValues)->toBe([
-        'title' => '',
-        'nested' => [
-            'body' => '',
-        ],
-    ])->and($jsonValues)->toBe([
-        'Plain string' => '',
-        'Shared button' => '',
-        'Sentence.with.dot' => '',
-    ]);
+    expect($phpValues)->toBe([])
+        ->and($jsonValues)->toBe([])
+        ->and(trim(File::get($this->appLanguagePath . '/es.json')))->toBe('{}');
+
+    app()->setFallbackLocale('en');
+    app('translator')->setLoaded([]);
+
+    expect(trans('messages.title', [], 'es'))->toBe(trans('messages.title', [], 'en'))
+        ->and(trans('messages.title', [], 'es'))->not->toBe('');
 });
 
 it('saves JSON language keys literally even when keys contain dots', function (): void {
@@ -686,6 +687,7 @@ it('exports compared translation entries as CSV', function (): void {
 
 it('preserves raw formula-like translations through CSV round trips without PHP 8.4 deprecations', function (): void {
     $values = ['title' => '=1+1', 'quoted' => 'A "quote" and a \\backslash', 'literal' => "'=literal"];
+    File::put($this->appLanguagePath . '/en/messages.php', '<?php return ' . var_export(array_fill_keys(array_keys($values), 'Source'), true) . ';');
     File::put($this->appLanguagePath . '/fr/messages.php', '<?php return ' . var_export($values, true) . ';');
     set_error_handler(static function (int $severity, string $message, string $file, int $line): false {
         if ($severity === E_DEPRECATED) {
@@ -1050,3 +1052,111 @@ it('can write package source files only when package source writes are enabled',
         ->and(File::exists($overridePath))->toBeFalse()
         ->and($values['heading'])->toBe('Titre source');
 });
+
+it('skips unknown keys and blank cells and reports them by row on import', function (): void {
+    $csv = "key,source_value,target_value,status\ntitle,Hello,Salut,changed\nnested.body,Welcome,,missing\nghost.key,,Fantôme,extra\n";
+
+    $result = ImportTranslationEntriesFromCsvAction::run('app', 'php:messages', 'fr', $csv);
+
+    expect($result->importedCount)->toBe(1)
+        ->and($result->skippedCount)->toBe(2)
+        ->and($result->diagnostics)->toBe([
+            ['position' => 3, 'reason' => 'blank_value'],
+            ['position' => 4, 'reason' => 'unknown_key'],
+        ])
+        ->and(File::getRequire($this->appLanguagePath . '/fr/messages.php'))->toBe(['title' => 'Salut']);
+});
+
+it('neutralises spreadsheet formulas on export and restores them on import', function (): void {
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', ['title' => '=HYPERLINK("http://example.test")']);
+
+    $csv = ExportTranslationEntriesToCsvAction::run('app', 'php:messages', 'en', 'fr');
+
+    expect($csv)->toContain("'=HYPERLINK")
+        ->and($csv)->not->toContain(',=HYPERLINK');
+
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', ['title' => 'Bonjour']);
+    ImportTranslationEntriesFromCsvAction::run('app', 'php:messages', 'fr', $csv);
+
+    expect(data_get(File::getRequire($this->appLanguagePath . '/fr/messages.php'), 'title'))->toBe('=HYPERLINK("http://example.test")');
+});
+
+it('checks plural forms only for plural strings and against the selected source locale', function (): void {
+    File::put($this->appLanguagePath . '/en/messages.php', "<?php return ['nav' => 'Home | About', 'items' => '{0} None|{1} One|[2,*] :count items'];");
+    File::ensureDirectoryExists($this->appLanguagePath . '/de');
+    File::put($this->appLanguagePath . '/de/messages.php', "<?php return ['nav' => 'Start'];");
+
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', ['nav' => 'Accueil']);
+
+    expect(fn () => SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', ['items' => '{0} Aucun|[2,*] :count articles']))
+        ->toThrow(TranslationValidationException::class)
+        ->and(data_get(File::getRequire($this->appLanguagePath . '/fr/messages.php'), 'nav'))->toBe('Accueil');
+
+    // Against a German source whose string has a placeholder, the French edit must keep it.
+    File::put($this->appLanguagePath . '/de/messages.php', "<?php return ['nav' => 'Start :name'];");
+
+    expect(fn () => SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', ['nav' => 'Accueil'], 'de'))
+        ->toThrow(TranslationValidationException::class);
+});
+
+it('remembers translation memory until a translation is written', function (): void {
+    Cache::flush();
+    $entries = [new TranslationEntryData('items', 'Hello', null, 'missing', true)];
+    File::put($this->appLanguagePath . '/fr/messages.php', '<?php return [];');
+
+    $first = BuildTranslationMemorySuggestionsAction::run('app', 'en', 'fr', $entries);
+    expect($first)->toHaveCount(0);
+
+    File::put($this->appLanguagePath . '/fr/messages.php', "<?php return ['title' => 'Salut'];");
+
+    // Still remembered: the file changed on disk without a write through the store.
+    expect(BuildTranslationMemorySuggestionsAction::run('app', 'en', 'fr', $entries))->toHaveCount(0);
+
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', ['title' => 'Salut']);
+
+    expect(BuildTranslationMemorySuggestionsAction::run('app', 'en', 'fr', $entries))->toHaveCount(1);
+});
+
+it('imports XLIFF 2.0 units and reduces inline tags to what the translator sees', function (): void {
+    $xliff = <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:2.0" version="2.0" srcLang="en" trgLang="fr">
+  <file id="f1">
+    <unit id="title"><segment><source>Hello</source><target>Salut <pc id="1">tout</pc> <ph id="2" equiv=":name"/></target></segment></unit>
+    <unit id="nested.body"><segment><source>Welcome</source><target>Bienvenue</target></segment></unit>
+  </file>
+</xliff>
+XML;
+
+    $result = ImportTranslationEntriesFromXliffAction::run('app', 'php:messages', 'fr', $xliff);
+
+    expect($result->importedCount)->toBe(2)
+        ->and($result->skippedCount)->toBe(0)
+        ->and(data_get(File::getRequire($this->appLanguagePath . '/fr/messages.php'), 'title'))->toBe('Salut tout :name')
+        ->and(data_get(File::getRequire($this->appLanguagePath . '/fr/messages.php'), 'nested.body'))->toBe('Bienvenue');
+});
+
+it('exports XLIFF 2.0 that its own importer reads back', function (): void {
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', ['title' => 'Salut']);
+
+    $xliff = ExportTranslationEntriesToXliffAction::run('app', 'php:messages', 'en', 'fr', '2.0');
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', ['title' => 'Autre']);
+    ImportTranslationEntriesFromXliffAction::run('app', 'php:messages', 'fr', $xliff);
+
+    expect($xliff)->toContain('urn:oasis:names:tc:xliff:document:2.0')
+        ->and(data_get(File::getRequire($this->appLanguagePath . '/fr/messages.php'), 'title'))->toBe('Salut');
+});
+
+it('previews an import without writing anything', function (string $format): void {
+    $before = File::get($this->appLanguagePath . '/fr/messages.php');
+
+    $result = match ($format) {
+        'csv' => ImportTranslationEntriesFromCsvAction::run('app', 'php:messages', 'fr', "key,target_value\ntitle,Salut\nghost,X\n", true),
+        'po' => ImportTranslationEntriesFromPoAction::run('app', 'php:messages', 'fr', "msgctxt \"title\"\nmsgid \"Hello\"\nmsgstr \"Salut\"\n", true),
+        default => ImportTranslationEntriesFromXliffAction::run('app', 'php:messages', 'fr', '<xliff version="1.2"><file><body><trans-unit id="title"><target>Salut</target></trans-unit></body></file></xliff>', true),
+    };
+
+    expect($result->dryRun)->toBeTrue()
+        ->and($result->importedCount)->toBe(1)
+        ->and(File::get($this->appLanguagePath . '/fr/messages.php'))->toBe($before);
+})->with(['csv', 'po', 'xliff']);

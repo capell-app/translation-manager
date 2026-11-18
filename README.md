@@ -2,27 +2,27 @@
 
 <!-- prettier-ignore-start -->
 
-## What It Does
+Button labels, form messages and menu text can be translated from one admin page, side by side with the original wording. This wording lives in language files, and the page edits them for you. Open Translations in the System menu and pick a language to see what is missing and what has gone out of date because the original wording was edited.
 
-Translation Manager adds an admin workspace for comparing Laravel locales, finding missing or stale entries, and creating, duplicating, importing, exporting, or saving translation files. It works through file storage rather than adding translation tables.
+It covers the wording built into the system, your theme and installed packages. Page content is translated on each page's language tabs. The view permission opens the page, and changes need the manage permission.
+
+Because changes are written to your language files, the server needs a language folder it can write to and that is kept when the site is updated. A queue worker, a program on the server that handles background jobs, runs the readiness check.
+
+Wording from packages is saved as your own copy, so a package update doesn't overwrite it. Saving checks that placeholders, plural forms and any glossary terms you have set still match the original. You can create a language, duplicate one, or export CSV, PO and XLIFF files for an outside translator and paste the translated file back in. Publish readiness marks each language as ready or not and shows how many entries are still missing or out of date.
 
 - **Price and availability:** Check current availability and price on the [Capell Marketplace listing](https://capell.app/extensions/translation-manager).
 - **Licence:** Check the licence terms on the [Capell Marketplace listing](https://capell.app/extensions/translation-manager).
 - **Requires:** `PHP ^8.4`, `capell-app/admin ^1.0.66`, `capell-app/core ^1.0.75`, `lorisleiva/laravel-actions ^2.8`, `spatie/laravel-data ^4.5`, `spatie/laravel-package-tools ^1.14.1`.
 - **Install:** `composer require capell-app/translation-manager`.
 
-Administrators can compare locale coverage, edit entries, and manage locale files from one Filament page.
-
-## Who It Is For
-
-**For developers:** A TranslationFileStore contract separates file access from focused comparison and write Actions, so storage behaviour remains testable.
-
-**For teams:** Content and localization teams can close locale gaps while keeping changes in normal Laravel language files and package overrides.
-
 ## Quick Start
 
 1. Install the package: `composer require capell-app/translation-manager`.
 2. Open the package admin surface at `/admin/translation-manager` and confirm Translation Manager is available.
+
+## For Developers
+
+A TranslationFileStore contract separates file access from focused comparison and write Actions, so storage behaviour remains testable.
 
 ## Configure
 
@@ -54,7 +54,7 @@ Administrators can compare locale coverage, edit entries, and manage locale file
 - Required packages: `capell-app/admin`, `capell-app/core`.
 - Admin navigation: declares `admin-page: TranslationManagerPageContribution`; each Filament page or resource controls its own navigation visibility.
 - Admin/editor extensions: none declared.
-- Permissions: no package permission declarations or Shield gates detected; host access rules still apply.
+- Permissions: `View:TranslationManagerPage`, `Manage:TranslationManagerPage`.
 - Public routes: none declared.
 - Database changes: package migrations are declared.
 - Config: `config/capell-translation-manager.php`.
@@ -90,6 +90,6 @@ Read [CHANGELOG.md](CHANGELOG.md) before upgrading.
 - [Capell content language plan](../../docs/CONTENT_LANGUAGE_PLAN.md)
 - [Capell documentation design system](../../docs/DESIGN_SYSTEM.md)
 - [Capell and package ERD notes](../../docs/erd/capell-and-package-erds.md)
-- Related packages: [AI Orchestrator](../ai-orchestrator/README.md), [SEO Suite](../seo-suite/README.md).
+- Related packages: [AI Orchestrator](../ai-orchestrator/README.md).
 
 <!-- prettier-ignore-end -->

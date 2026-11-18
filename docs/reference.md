@@ -6,7 +6,7 @@ Developer reference for `capell-app/translation-manager`. Start with the [README
 
 ## Package Details
 
-Translation Manager is an **Available**, **Schema-owning** Capell package in the **Capell Publishing** product group. It ships as `capell-app/translation-manager` and extends these surfaces: admin.
+Translation Manager is an **Available** Capell package in the **Capell Publishing** product group. It ships as `capell-app/translation-manager` and extends these surfaces: admin.
 
 - Status: Available
 - Tier: free
@@ -52,6 +52,7 @@ Translation Manager is an **Available**, **Schema-owning** Capell package in the
 - `BuildTranslationReadinessMatrixAction`
 - `CreateLocaleFilesAction`
 - `DuplicateLocaleAction`
+- `EnsureTranslationManagerPermissionsAction`
 - `ExportTranslationEntriesToCsvAction`
 - `ExportTranslationEntriesToPoAction`
 - `ExportTranslationEntriesToXliffAction`

@@ -7,7 +7,9 @@ namespace Capell\TranslationManager\Providers;
 use Capell\AIOrchestrator\Providers\AIOrchestratorServiceProvider;
 use Capell\AIOrchestrator\Support\AIOrchestratorModuleRegistry;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\TranslationManager\Actions\EnsureTranslationManagerPermissionsAction;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
 use Capell\TranslationManager\Contracts\TranslationFileStore;
 use Capell\TranslationManager\Contracts\TranslationSourceResolver;
@@ -50,6 +52,7 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
     #[Override]
     protected function bootInstalledRuntime(): void
     {
+        $this->ensurePermissions();
         $this->registerOptionalAIOrchestratorIntegration();
     }
 
@@ -87,5 +90,14 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
         });
 
         return $this;
+    }
+
+    private function ensurePermissions(): void
+    {
+        $table = config('permission.table_names.permissions', 'permissions');
+
+        if (is_string($table) && resolve(RuntimeSchemaState::class)->hasTable($table)) {
+            EnsureTranslationManagerPermissionsAction::run();
+        }
     }
 }

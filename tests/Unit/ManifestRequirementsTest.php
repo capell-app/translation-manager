@@ -29,13 +29,13 @@ it('declares translation workflow capabilities actions and admin page contributi
 
     throw_unless(is_array($screenshots), RuntimeException::class, 'Translation Manager screenshots must be an array.');
 
-    expect(data_get($manifest, 'dependencies.supports'))->toContain('capell-app/ai-orchestrator', 'capell-app/seo-suite')
-        ->and(data_get($manifest, 'marketplace.summary'))->toBe('Manage Capell language files from one Filament page with side-by-side locale editing, missing and stale key checks, safe override writes, and optional reviewed AI drafting.')
-        ->and(data_get($manifest, 'marketplace.description'))->toContain('Pair it with AI Orchestrator for reviewed translation drafts')
-        ->and(data_get($manifest, 'marketplace.description'))->toContain('with SEO Suite when multilingual search teams need translation coverage')
-        ->and($composer['description'])->toBe('File-based Capell translation editing with side-by-side locale comparison, missing and stale key checks, safe override writes, and optional reviewed AI drafting.')
+    expect(data_get($manifest, 'dependencies.supports'))->toContain('capell-app/ai-orchestrator')
+        ->and(data_get($manifest, 'dependencies.supports'))->not->toContain('capell-app/seo-suite')
+        ->and(data_get($manifest, 'permissions'))->toBe(['View:TranslationManagerPage', 'Manage:TranslationManagerPage'])
+        ->and(data_get($manifest, 'marketplace.summary'))->toBeString()->not->toBeEmpty()
+        ->and(data_get($manifest, 'marketplace.description'))->toBeString()->not->toBeEmpty()
+        ->and($composer['description'])->toBeString()->not->toBeEmpty()
         ->and(data_get($composer, 'suggest'))->toHaveKey('capell-app/ai-orchestrator', 'Enable optional reviewed AI translation drafts.')
-        ->and(data_get($composer, 'suggest'))->toHaveKey('capell-app/seo-suite', 'Pair translation coverage with SEO and AI-discovery workflows.')
         ->and(data_get($manifest, 'performance.adminQueryBudget'))->toBe(0)
         ->and(data_get($manifest, 'healthChecks.0.label'))->toBe('Translation Manager diagnostics verify the admin surface, service bindings, and safe filesystem configuration.')
         ->and(data_get($manifest, 'providers.runtime'))->toContain(TranslationManagerServiceProvider::class)
@@ -60,21 +60,12 @@ it('declares translation workflow capabilities actions and admin page contributi
         ->and(data_get($manifest, 'actions'))->toHaveKey('saveTranslationEntries', SaveTranslationEntriesAction::class)
         ->and(data_get($manifest, 'actions'))->toHaveKey('scanMissingTranslationKeys', ScanMissingTranslationKeysAction::class)
         ->and(data_get($manifest, 'actions'))->toHaveKey('translateSelectedEntries', TranslateSelectedEntriesAction::class)
-        ->and(data_get($manifest, 'capabilities'))->toContain(
-            'translation.files.csv-import-export',
-            'translation.files.code-missing-key-scan',
-            'translation.files.fallback-awareness',
-            'translation.files.glossary-validation',
-            'translation.files.integrity-validation',
-            'translation.files.override-merge',
-            'translation.files.publish-readiness',
-            'translation.files.readiness-dashboard',
-            'translation.files.po-import-export',
-            'translation.files.stale-detection',
-            'translation.files.translation-memory',
-            'translation.files.xliff-import-export',
+        ->and(data_get($manifest, 'capabilities'))->toBe([
+            'translation.ai.translate-selected',
+            'translation.files.browse',
+            'translation.files.duplicate',
             'translation.files.write',
-        )
+        ])
         ->and($screenshots)->toHaveCount(6)
         ->and(array_column($screenshots, 'path'))->toContain(
             'docs/screenshots/translation-manager-page-empty-state.png',

@@ -17,7 +17,8 @@ final readonly class PrismTranslationAITranslator implements TranslationAITransl
 
     public function available(): bool
     {
-        return $this->provider->isAvailable();
+        return $this->provider->isAvailable() && $this->provider->canCallInThisContext()
+            && $this->provider->hasCredentials();
     }
 
     public function translateSelected(string $sourceLocale, string $targetLocale, array $entries): array

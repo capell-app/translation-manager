@@ -24,6 +24,11 @@ return [
 
     'package_source_writes' => false,
 
+    'import' => [
+        // Largest import, pasted or uploaded, in bytes.
+        'max_bytes' => 2 * 1024 * 1024,
+    ],
+
     'scan_paths' => [
         app_path(),
         resource_path('views'),

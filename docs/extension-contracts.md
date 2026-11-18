@@ -92,15 +92,21 @@ final class TranslationFileStoreAdapter implements \Capell\TranslationManager\Co
     }
 
     #[\Override]
-    public function importCsv(\Capell\TranslationManager\Data\TranslationSourceData $source, string $fileKey, string $locale, string $contents): \Capell\TranslationManager\Data\TranslationCsvImportResultData
+    public function importCsv(\Capell\TranslationManager\Data\TranslationSourceData $source, string $fileKey, string $locale, string $contents, bool $dryRun = false): \Capell\TranslationManager\Data\TranslationCsvImportResultData
     {
-        return $this->backend->importCsv($source, $fileKey, $locale, $contents);
+        return $this->backend->importCsv($source, $fileKey, $locale, $contents, $dryRun);
     }
 
     #[\Override]
     public function locales(\Capell\TranslationManager\Data\TranslationSourceData $source): array
     {
         return $this->backend->locales($source);
+    }
+
+    #[\Override]
+    public function valueIsValid(\Capell\TranslationManager\Data\TranslationSourceData $source, string $fileKey, string $locale, string $key, string $value): bool
+    {
+        return $this->backend->valueIsValid($source, $fileKey, $locale, $key, $value);
     }
 
     #[\Override]
@@ -257,9 +263,9 @@ declare(strict_types=1);
 
 namespace App\CapellExamples\TranslationManager;
 
-function runExportTranslationEntriesToXliff(string $sourceKey, string $fileKey, string $sourceLocale, string $targetLocale): string
+function runExportTranslationEntriesToXliff(string $sourceKey, string $fileKey, string $sourceLocale, string $targetLocale, string $version = '1.2'): string
 {
-    return \Capell\TranslationManager\Actions\ExportTranslationEntriesToXliffAction::run($sourceKey, $fileKey, $sourceLocale, $targetLocale);
+    return \Capell\TranslationManager\Actions\ExportTranslationEntriesToXliffAction::run($sourceKey, $fileKey, $sourceLocale, $targetLocale, $version);
 }
 ```
 
@@ -273,9 +279,9 @@ declare(strict_types=1);
 
 namespace App\CapellExamples\TranslationManager;
 
-function runImportTranslationEntriesFromCsv(string $sourceKey, string $fileKey, string $locale, string $contents): \Capell\TranslationManager\Data\TranslationCsvImportResultData
+function runImportTranslationEntriesFromCsv(string $sourceKey, string $fileKey, string $locale, string $contents, bool $dryRun = false): \Capell\TranslationManager\Data\TranslationCsvImportResultData
 {
-    return \Capell\TranslationManager\Actions\ImportTranslationEntriesFromCsvAction::run($sourceKey, $fileKey, $locale, $contents);
+    return \Capell\TranslationManager\Actions\ImportTranslationEntriesFromCsvAction::run($sourceKey, $fileKey, $locale, $contents, $dryRun);
 }
 ```
 
@@ -289,9 +295,9 @@ declare(strict_types=1);
 
 namespace App\CapellExamples\TranslationManager;
 
-function runImportTranslationEntriesFromPo(string $sourceKey, string $fileKey, string $locale, string $contents): \Capell\TranslationManager\Data\TranslationCsvImportResultData
+function runImportTranslationEntriesFromPo(string $sourceKey, string $fileKey, string $locale, string $contents, bool $dryRun = false): \Capell\TranslationManager\Data\TranslationCsvImportResultData
 {
-    return \Capell\TranslationManager\Actions\ImportTranslationEntriesFromPoAction::run($sourceKey, $fileKey, $locale, $contents);
+    return \Capell\TranslationManager\Actions\ImportTranslationEntriesFromPoAction::run($sourceKey, $fileKey, $locale, $contents, $dryRun);
 }
 ```
 
@@ -305,9 +311,9 @@ declare(strict_types=1);
 
 namespace App\CapellExamples\TranslationManager;
 
-function runImportTranslationEntriesFromXliff(string $sourceKey, string $fileKey, string $locale, string $contents): \Capell\TranslationManager\Data\TranslationCsvImportResultData
+function runImportTranslationEntriesFromXliff(string $sourceKey, string $fileKey, string $locale, string $contents, bool $dryRun = false): \Capell\TranslationManager\Data\TranslationCsvImportResultData
 {
-    return \Capell\TranslationManager\Actions\ImportTranslationEntriesFromXliffAction::run($sourceKey, $fileKey, $locale, $contents);
+    return \Capell\TranslationManager\Actions\ImportTranslationEntriesFromXliffAction::run($sourceKey, $fileKey, $locale, $contents, $dryRun);
 }
 ```
 
@@ -385,9 +391,9 @@ declare(strict_types=1);
 
 namespace App\CapellExamples\TranslationManager;
 
-function runSaveTranslationEntries(string $sourceKey, string $fileKey, string $locale, array $values): void
+function runSaveTranslationEntries(string $sourceKey, string $fileKey, string $locale, array $values, ?string $sourceLocale = null): void
 {
-    \Capell\TranslationManager\Actions\SaveTranslationEntriesAction::run($sourceKey, $fileKey, $locale, $values);
+    \Capell\TranslationManager\Actions\SaveTranslationEntriesAction::run($sourceKey, $fileKey, $locale, $values, $sourceLocale);
 }
 ```
 

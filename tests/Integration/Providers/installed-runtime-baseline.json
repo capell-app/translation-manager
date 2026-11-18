@@ -4,12 +4,12 @@
     "scenarios": {
         "default": {
             "source": {
-                "ref": "c92ce184be4d91c372f35ca125ea25f6c1308599",
-                "commit": "c92ce184be4d91c372f35ca125ea25f6c1308599",
+                "ref": "HEAD",
+                "commit": "f45ee22758da4041b61cb0e9f38aa68c93527e03",
                 "providers": {
                     "Providers/AdminServiceProvider.php": "de83168ce44c1c5739cfe4d2defcd481a314617c24969fc67ba77cc2b3de872c",
                     "Providers/MigrationMetadataServiceProvider.php": "e4aa6cb0f463251039e2bab62975e01ee158e85524abe2f25631fde8653e0235",
-                    "Providers/TranslationManagerServiceProvider.php": "c7234a265008190737ef81900cbc047c82b7473287db7313dedfaf85abd8dbf9"
+                    "Providers/TranslationManagerServiceProvider.php": "57c2a240cc1d0a635d7f68d44eea9749cc3fe67fc51445b6af36f1abbfb44fdb"
                 },
                 "configure": null
             },
@@ -74,6 +74,7 @@
                         "app_source.path": "<path>",
                         "app_source.writable": true,
                         "glossary": [],
+                        "import.max_bytes": 2097152,
                         "locale_pattern": "<path>",
                         "package_paths": "<path>",
                         "package_source_writes": false,
@@ -94,6 +95,8 @@
                     "capell-translation-manager.app_source.path",
                     "capell-translation-manager.app_source.writable",
                     "capell-translation-manager.glossary",
+                    "capell-translation-manager.import",
+                    "capell-translation-manager.import.max_bytes",
                     "capell-translation-manager.locale_pattern",
                     "capell-translation-manager.package_paths",
                     "capell-translation-manager.package_source_writes",
@@ -230,6 +233,7 @@
                         "app_source.path": "<path>",
                         "app_source.writable": true,
                         "glossary": [],
+                        "import.max_bytes": 2097152,
                         "locale_pattern": "<path>",
                         "package_paths": "<path>",
                         "package_source_writes": false,
@@ -250,6 +254,8 @@
                     "capell-translation-manager.app_source.path",
                     "capell-translation-manager.app_source.writable",
                     "capell-translation-manager.glossary",
+                    "capell-translation-manager.import",
+                    "capell-translation-manager.import.max_bytes",
                     "capell-translation-manager.locale_pattern",
                     "capell-translation-manager.package_paths",
                     "capell-translation-manager.package_source_writes",

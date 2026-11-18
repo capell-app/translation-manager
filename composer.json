@@ -1,6 +1,6 @@
 {
     "name": "capell-app/translation-manager",
-    "description": "File-based Capell translation editing with side-by-side locale comparison, missing and stale key checks, safe override writes, and optional reviewed AI drafting.",
+    "description": "Edit and compare Laravel language files from the Capell admin, with readiness checks and CSV, PO and XLIFF import and export.",
     "type": "library",
     "license": "proprietary",
     "autoload": {
@@ -32,8 +32,7 @@
         "spatie/laravel-package-tools": "^1.14.1"
     },
     "suggest": {
-        "capell-app/ai-orchestrator": "Enable optional reviewed AI translation drafts.",
-        "capell-app/seo-suite": "Pair translation coverage with SEO and AI-discovery workflows."
+        "capell-app/ai-orchestrator": "Enable optional reviewed AI translation drafts."
     },
     "homepage": "https://github.com/capell-app/translation-manager",
     "keywords": [

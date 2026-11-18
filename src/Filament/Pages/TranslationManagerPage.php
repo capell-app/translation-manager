@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Capell\TranslationManager\Filament\Pages;
 
 use BackedEnum;
-use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Admin\Enums\NavigationGroupEnum;
 use Capell\TranslationManager\Actions\CreateLocaleFilesAction;
 use Capell\TranslationManager\Actions\DuplicateLocaleAction;
 use Capell\TranslationManager\Actions\ExportTranslationEntriesToCsvAction;
@@ -31,15 +31,20 @@ use Capell\TranslationManager\Data\TranslationImportData;
 use Capell\TranslationManager\Data\TranslationLocaleOperationData;
 use Capell\TranslationManager\Data\TranslationSourceData;
 use Capell\TranslationManager\Exceptions\TranslationImportFormatException;
+use Capell\TranslationManager\Exceptions\TranslationValidationException;
 use Capell\TranslationManager\Models\TranslationScanRun;
+use Capell\TranslationManager\Support\TranslationManagerAuthorization;
 use Filament\Actions\Action;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Livewire\Attributes\Locked;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Override;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -133,15 +138,15 @@ final class TranslationManagerPage extends Page
     }
 
     #[Override]
-    public static function getNavigationGroup(): string
+    public static function getNavigationGroup(): NavigationGroupEnum
     {
-        return (string) __('capell-admin::navigation.group_system');
+        return NavigationGroupEnum::Developer;
     }
 
     #[Override]
     public static function canAccess(): bool
     {
-        return ExtensionsPage::canManageExtensions();
+        return TranslationManagerAuthorization::canView();
     }
 
     #[Override]
@@ -240,6 +245,8 @@ final class TranslationManagerPage extends Page
 
     public function saveTranslations(): bool
     {
+        TranslationManagerAuthorization::authorizeManage();
+
         if ($this->sourceKey === null || $this->fileKey === null || $this->targetLocale === null) {
             return false;
         }
@@ -250,7 +257,16 @@ final class TranslationManagerPage extends Page
                 $this->fileKey,
                 $this->targetLocale,
                 $this->currentDirtyEditableTranslationValues(),
+                $this->sourceLocale,
             );
+        } catch (TranslationValidationException $exception) {
+            Notification::make()
+                ->title(__('capell-translation-manager::package.save_failed'))
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+
+            return false;
         } catch (Throwable) {
             Notification::make()
                 ->title(__('capell-translation-manager::package.save_failed'))
@@ -427,6 +443,7 @@ final class TranslationManagerPage extends Page
     {
         return [
             Action::make('createLocale')
+                ->visible(fn (): bool => TranslationManagerAuthorization::canManage())
                 ->label(__('capell-translation-manager::package.create_locale'))
                 ->icon(Heroicon::OutlinedPlusCircle)
                 ->extraAttributes(['class' => 'hidden'])
@@ -445,6 +462,7 @@ final class TranslationManagerPage extends Page
                     ));
                 }),
             Action::make('duplicateLocale')
+                ->visible(fn (): bool => TranslationManagerAuthorization::canManage())
                 ->label(__('capell-translation-manager::package.duplicate_locale'))
                 ->icon(Heroicon::OutlinedDocumentDuplicate)
                 ->extraAttributes(['class' => 'hidden'])
@@ -468,6 +486,7 @@ final class TranslationManagerPage extends Page
                     ));
                 }),
             Action::make('translateSelected')
+                ->visible(fn (): bool => TranslationManagerAuthorization::canManage())
                 ->label(__('capell-translation-manager::package.translate_selected'))
                 ->icon(Heroicon::OutlinedSparkles)
                 ->extraAttributes(['class' => 'hidden'])
@@ -494,12 +513,18 @@ final class TranslationManagerPage extends Page
                 ->icon(Heroicon::OutlinedArrowDownTray)
                 ->extraAttributes(['class' => 'hidden'])
                 ->action(fn (): ?StreamedResponse => $this->exportCurrentFile('xliff')),
+            Action::make('exportXliff2')
+                ->label(__('capell-translation-manager::package.export_xliff2'))
+                ->icon(Heroicon::OutlinedArrowDownTray)
+                ->extraAttributes(['class' => 'hidden'])
+                ->action(fn (): ?StreamedResponse => $this->exportCurrentFile('xliff2')),
             Action::make('exportPo')
                 ->label(__('capell-translation-manager::package.export_po'))
                 ->icon(Heroicon::OutlinedArrowDownTray)
                 ->extraAttributes(['class' => 'hidden'])
                 ->action(fn (): ?StreamedResponse => $this->exportCurrentFile('po')),
             Action::make('importTranslations')
+                ->visible(fn (): bool => TranslationManagerAuthorization::canManage())
                 ->label(__('capell-translation-manager::package.import_translations'))
                 ->icon(Heroicon::OutlinedArrowUpTray)
                 ->modalDescription(__('capell-translation-manager::package.import_writes_file'))
@@ -514,15 +539,31 @@ final class TranslationManagerPage extends Page
                         ])
                         ->default('csv')
                         ->required(),
+                    FileUpload::make('file')
+                        ->label(__('capell-translation-manager::package.import_file'))
+                        ->helperText(__('capell-translation-manager::package.import_file_help', ['size' => (int) ceil(self::importMaxBytes() / 1024)]))
+                        ->maxSize((int) ceil(self::importMaxBytes() / 1024))
+                        ->acceptedFileTypes(['text/csv', 'text/plain', 'application/xml', 'text/xml', 'application/x-xliff+xml', 'text/x-gettext-translation', 'application/octet-stream'])
+                        ->storeFiles(false)
+                        ->columnSpanFull(),
                     Textarea::make('contents')
                         ->label(__('capell-translation-manager::package.import_contents'))
+                        ->helperText(__('capell-translation-manager::package.import_contents_help'))
                         ->rows(12)
-                        ->required()
                         ->columnSpanFull(),
+                    Toggle::make('dry_run')
+                        ->label(__('capell-translation-manager::package.import_dry_run'))
+                        ->helperText(__('capell-translation-manager::package.import_dry_run_help'))
+                        ->default(false),
                 ])
                 ->action(function (array $data): void {
-                    $import = TranslationImportData::from($data);
-                    if ($this->hasUnsavedChanges()) {
+                    $import = $this->importFromForm($data);
+
+                    if (! $import instanceof TranslationImportData) {
+                        return;
+                    }
+
+                    if (! $import->dryRun && $this->hasUnsavedChanges()) {
                         $this->pendingImport = $import;
                         $this->pendingNavigation = ['property' => 'import', 'value' => null, 'label' => __('capell-translation-manager::package.import_translations')];
 
@@ -546,6 +587,7 @@ final class TranslationManagerPage extends Page
                     $this->scanMissingCodeKeys();
                 }),
             Action::make('saveTranslations')
+                ->visible(fn (): bool => TranslationManagerAuthorization::canManage())
                 ->label(__('capell-translation-manager::package.save_file'))
                 ->icon(Heroicon::OutlinedCloudArrowUp)
                 ->color('primary')
@@ -555,8 +597,17 @@ final class TranslationManagerPage extends Page
         ];
     }
 
+    private static function importMaxBytes(): int
+    {
+        $max = config('capell-translation-manager.import.max_bytes', 2 * 1024 * 1024);
+
+        return is_numeric($max) ? max(1024, (int) $max) : 2 * 1024 * 1024;
+    }
+
     private function requestLocaleOperation(TranslationLocaleOperationData $operation): void
     {
+        TranslationManagerAuthorization::authorizeManage();
+
         if ($this->hasUnsavedChanges()) {
             $this->pendingLocaleOperation = $operation;
             $this->pendingNavigation = [
@@ -732,6 +783,7 @@ final class TranslationManagerPage extends Page
 
         $contents = match ($format) {
             'xliff' => ExportTranslationEntriesToXliffAction::run($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale),
+            'xliff2' => ExportTranslationEntriesToXliffAction::run($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale, '2.0'),
             'po' => ExportTranslationEntriesToPoAction::run($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale),
             default => ExportTranslationEntriesToCsvAction::run($this->sourceKey, $this->fileKey, $this->sourceLocale, $this->targetLocale),
         };
@@ -742,15 +794,43 @@ final class TranslationManagerPage extends Page
             },
             $this->downloadFilename($format),
             ['Content-Type' => match ($format) {
-                'xliff' => 'application/x-xliff+xml',
+                'xliff', 'xliff2' => 'application/x-xliff+xml',
                 'po' => 'text/x-gettext-translation',
                 default => 'text/csv',
             }],
         );
     }
 
+    /**
+     * Builds the import from the uploaded file, or the pasted text when no file was chosen,
+     * and refuses anything over the size cap before it is parsed.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function importFromForm(array $data): ?TranslationImportData
+    {
+        $file = $data['file'] ?? null;
+        $file = is_array($file) ? (reset($file) ?: null) : $file;
+        $contents = $file instanceof TemporaryUploadedFile ? (string) file_get_contents($file->getRealPath()) : (is_string($data['contents'] ?? null) ? $data['contents'] : '');
+        $format = is_string($data['format'] ?? null) ? $data['format'] : 'csv';
+
+        if (strlen($contents) > self::importMaxBytes()) {
+            Notification::make()
+                ->title(__('capell-translation-manager::package.import_failed'))
+                ->body(__('capell-translation-manager::package.import_too_large', ['size' => (int) ceil(self::importMaxBytes() / 1024)]))
+                ->danger()
+                ->send();
+
+            return null;
+        }
+
+        return new TranslationImportData($format, $contents, ($data['dry_run'] ?? false) === true);
+    }
+
     private function importCurrentFile(TranslationImportData $data): bool
     {
+        TranslationManagerAuthorization::authorizeManage();
+
         if ($this->sourceKey === null || $this->fileKey === null || $this->targetLocale === null) {
             return false;
         }
@@ -758,9 +838,9 @@ final class TranslationManagerPage extends Page
         $contents = $data->contents;
         try {
             $result = match ($data->format) {
-                'xliff' => ImportTranslationEntriesFromXliffAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
-                'po' => ImportTranslationEntriesFromPoAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
-                default => ImportTranslationEntriesFromCsvAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents),
+                'xliff' => ImportTranslationEntriesFromXliffAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents, $data->dryRun),
+                'po' => ImportTranslationEntriesFromPoAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents, $data->dryRun),
+                default => ImportTranslationEntriesFromCsvAction::run($this->sourceKey, $this->fileKey, $this->targetLocale, $contents, $data->dryRun),
             };
         } catch (TranslationImportFormatException $exception) {
             $message = match ($exception->reason) {
@@ -780,7 +860,9 @@ final class TranslationManagerPage extends Page
             return false;
         }
 
-        $this->reloadBrowser(forceReadinessScan: true);
+        if (! $result->dryRun) {
+            $this->reloadBrowser(forceReadinessScan: true);
+        }
 
         $details = [];
         foreach (array_slice($result->diagnostics, 0, 10) as $diagnostic) {
@@ -791,6 +873,9 @@ final class TranslationManagerPage extends Page
                 'missing_key' => __('capell-translation-manager::package.import_missing_key'),
                 'missing_context' => __('capell-translation-manager::package.import_missing_context'),
                 'missing_target' => __('capell-translation-manager::package.import_missing_target'),
+                'unknown_key' => __('capell-translation-manager::package.import_unknown_key'),
+                'blank_value' => __('capell-translation-manager::package.import_blank_value'),
+                'invalid_value' => __('capell-translation-manager::package.import_invalid_value'),
                 default => __('capell-translation-manager::package.import_invalid_entry'),
             };
             $details[] = __('capell-translation-manager::package.import_entry_reason', [
@@ -802,10 +887,15 @@ final class TranslationManagerPage extends Page
         }
 
         $notification = Notification::make()
-            ->title(__('capell-translation-manager::package.imported', [
-                'imported' => $result->importedCount,
-                'skipped' => $result->skippedCount,
-            ]))
+            ->title($result->dryRun
+                ? __('capell-translation-manager::package.import_preview', [
+                    'imported' => $result->importedCount,
+                    'skipped' => $result->skippedCount,
+                ])
+                : __('capell-translation-manager::package.imported', [
+                    'imported' => $result->importedCount,
+                    'skipped' => $result->skippedCount,
+                ]))
             ->body(implode(' ', $details));
         $result->skippedCount > 0 ? $notification->warning() : $notification->success();
         $notification->send();
@@ -1011,7 +1101,7 @@ final class TranslationManagerPage extends Page
         return str($this->sourceKey . '-' . $this->sourceLocale . '-' . $this->targetLocale . '-' . $this->fileKey)
             ->replace([':', '/', '\\'], '-')
             ->append('.' . match ($format) {
-                'xliff' => 'xlf',
+                'xliff', 'xliff2' => 'xlf',
                 'po' => 'po',
                 default => 'csv',
             })
@@ -1020,6 +1110,8 @@ final class TranslationManagerPage extends Page
 
     private function translateSelectedEntries(): void
     {
+        TranslationManagerAuthorization::authorizeManage();
+
         if ($this->targetLocale === null) {
             return;
         }

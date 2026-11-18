@@ -82,7 +82,7 @@ This guide is for people who translate the words in the admin and in themes (but
 | Role                | First useful screen                               |
 | ------------------- | ------------------------------------------------- |
 | Translator / editor | The translation editor and the **Missing** filter |
-| Site owner          | **Locales**: decide which languages to support    |
+| Site owner          | **Languages**: decide which languages to support  |
 
 ## Troubleshooting for editors
 

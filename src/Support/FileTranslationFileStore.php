@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\TranslationManager\Support;
 
+use Capell\TranslationManager\Actions\BuildTranslationMemorySuggestionsAction;
 use Capell\TranslationManager\Contracts\TranslationFileStore;
 use Capell\TranslationManager\Data\LocaleSummaryData;
 use Capell\TranslationManager\Data\TranslationCsvImportResultData;
@@ -13,11 +14,13 @@ use Capell\TranslationManager\Data\TranslationSourceData;
 use Capell\TranslationManager\Data\TranslationWriteData;
 use Capell\TranslationManager\Exceptions\TranslationFileWriteException;
 use Capell\TranslationManager\Exceptions\TranslationImportFormatException;
+use Capell\TranslationManager\Exceptions\TranslationValidationException;
 use Closure;
 use Illuminate\Filesystem\Filesystem;
 use InvalidArgumentException;
 use JsonException;
 use RuntimeException;
+use stdClass;
 use Throwable;
 
 final class FileTranslationFileStore implements TranslationFileStore
@@ -193,14 +196,13 @@ final class FileTranslationFileStore implements TranslationFileStore
         $this->localeValidator->assertValid($locale);
 
         foreach ($this->files($source, $sourceLocale, $sourceLocale) as $file) {
-            $sourceValues = TranslationArray::flattenStrings($this->read($source, $file->key, $sourceLocale, false));
-            $blankValues = array_fill_keys(array_keys($sourceValues), '');
-
+            // Laravel returns a present blank string without falling back, so a new locale
+            // starts with no keys: every string stays missing here and shows the fallback text.
             $this->write(new TranslationWriteData(
                 source: $source,
                 fileKey: $file->key,
                 locale: $locale,
-                values: $blankValues,
+                values: [],
             ));
         }
     }
@@ -266,9 +268,9 @@ final class FileTranslationFileStore implements TranslationFileStore
 
             foreach ($this->comparison($source, $fileKey, $sourceLocale, $targetLocale) as $entry) {
                 fputcsv($stream, [
-                    $entry->key,
-                    $entry->sourceValue ?? '',
-                    $entry->targetValue ?? '',
+                    $this->neutraliseCsvFormula($entry->key),
+                    $this->neutraliseCsvFormula($entry->sourceValue ?? ''),
+                    $this->neutraliseCsvFormula($entry->targetValue ?? ''),
                     $entry->status,
                 ], escape: '\\');
             }
@@ -282,7 +284,7 @@ final class FileTranslationFileStore implements TranslationFileStore
         }
     }
 
-    public function importCsv(TranslationSourceData $source, string $fileKey, string $locale, string $contents): TranslationCsvImportResultData
+    public function importCsv(TranslationSourceData $source, string $fileKey, string $locale, string $contents, bool $dryRun = false): TranslationCsvImportResultData
     {
         $stream = fopen('php://temp', 'r+');
 
@@ -298,7 +300,7 @@ final class FileTranslationFileStore implements TranslationFileStore
 
             throw_if(! is_int($keyIndex) || ! is_int($targetValueIndex), TranslationImportFormatException::class, 'csv_headers');
 
-            $values = [];
+            $rows = [];
             $skippedCount = 0;
             $diagnostics = [];
             $position = 1;
@@ -316,24 +318,48 @@ final class FileTranslationFileStore implements TranslationFileStore
                     continue;
                 }
 
-                $values[$key] = $this->csvCell($row, $targetValueIndex);
+                $rows[] = ['position' => $position, 'key' => $key, 'value' => $this->csvCell($row, $targetValueIndex)];
             }
 
-            $this->write(new TranslationWriteData(
-                source: $source,
-                fileKey: $fileKey,
-                locale: $locale,
-                values: $values,
-            ));
+            $selection = TranslationImportFilter::filter(
+                $rows,
+                $source->key,
+                $fileKey,
+                $locale,
+                $skippedCount,
+                $diagnostics,
+                fn (string $key, string $value): bool => $this->valueIsValid($source, $fileKey, $locale, $key, $value),
+            );
+
+            if (! $dryRun && $selection['values'] !== []) {
+                $this->write(new TranslationWriteData(
+                    source: $source,
+                    fileKey: $fileKey,
+                    locale: $locale,
+                    values: $selection['values'],
+                ));
+            }
 
             return new TranslationCsvImportResultData(
-                importedCount: count($values),
-                skippedCount: $skippedCount,
-                diagnostics: $diagnostics,
+                importedCount: count($selection['values']),
+                skippedCount: $selection['skipped'],
+                diagnostics: $selection['diagnostics'],
+                dryRun: $dryRun,
             );
         } finally {
             fclose($stream);
         }
+    }
+
+    public function valueIsValid(TranslationSourceData $source, string $fileKey, string $locale, string $key, string $value): bool
+    {
+        try {
+            $this->assertTranslationIntegrity(new TranslationWriteData($source, $fileKey, $locale, [$key => $value]));
+        } catch (TranslationValidationException) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -432,7 +458,7 @@ final class FileTranslationFileStore implements TranslationFileStore
 
     private function assertTranslationIntegrity(TranslationWriteData $write): void
     {
-        $sourceLocale = config('capell-translation-manager.source_locale', 'en');
+        $sourceLocale = $write->sourceLocale ?? config('capell-translation-manager.source_locale', 'en');
 
         if (! is_string($sourceLocale) || $sourceLocale === '' || $sourceLocale === $write->locale) {
             return;
@@ -471,7 +497,7 @@ final class FileTranslationFileStore implements TranslationFileStore
             $this->placeholders($targetValue),
         ));
 
-        throw_if($missingPlaceholders !== [], InvalidArgumentException::class, __(
+        throw_if($missingPlaceholders !== [], TranslationValidationException::class, __(
             'capell-translation-manager::package.validation_missing_placeholders',
             [
                 'key' => $key,
@@ -484,14 +510,24 @@ final class FileTranslationFileStore implements TranslationFileStore
     {
         $sourcePluralCount = substr_count($sourceValue, '|');
 
-        if ($sourcePluralCount === 0) {
+        // A pipe only separates plural forms in a plural string; "Home | About" is ordinary text.
+        if ($sourcePluralCount === 0 || ! $this->isPluralString($sourceValue)) {
             return;
         }
 
-        throw_unless(substr_count($targetValue, '|') === $sourcePluralCount, InvalidArgumentException::class, __(
+        throw_unless(substr_count($targetValue, '|') === $sourcePluralCount, TranslationValidationException::class, __(
             'capell-translation-manager::package.validation_plural_forms',
             ['key' => $key],
         ));
+    }
+
+    private function isPluralString(string $value): bool
+    {
+        // Plural forms sit tight against the pipe ("One|Many") or start with a selector; a spaced
+        // pipe is ordinary punctuation.
+        return preg_match('/\S\|\S/', $value) === 1
+            || preg_match('/(?:^|\|)\s*(?:\{[^}]*\}|\[[^\]]*\])/', $value) === 1
+            || str_contains($value, ':count');
     }
 
     private function assertGlossaryTermsPreserved(string $key, string $locale, string $sourceValue, string $targetValue): void
@@ -501,7 +537,7 @@ final class FileTranslationFileStore implements TranslationFileStore
                 continue;
             }
 
-            throw_unless(str_contains(mb_strtolower($targetValue), mb_strtolower($targetTerm)), InvalidArgumentException::class, __(
+            throw_unless(str_contains(mb_strtolower($targetValue), mb_strtolower($targetTerm)), TranslationValidationException::class, __(
                 'capell-translation-manager::package.validation_glossary_term',
                 [
                     'key' => $key,
@@ -644,7 +680,7 @@ final class FileTranslationFileStore implements TranslationFileStore
 
         if ($fileKey === 'json') {
             try {
-                $encoded = json_encode($values, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+                $encoded = json_encode($values === [] ? new stdClass : $values, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
             } catch (JsonException $exception) {
                 throw TranslationFileWriteException::encodingFailed($path, $exception);
             }
@@ -867,6 +903,11 @@ final class FileTranslationFileStore implements TranslationFileStore
 
         if (! $published) {
             throw TranslationFileWriteException::publicationFailed($path);
+        }
+
+        // A rewritten PHP translation file must not keep serving its cached bytecode.
+        if (str_ends_with($path, '.php') && function_exists('opcache_invalidate')) {
+            @opcache_invalidate($path, true);
         }
     }
 
@@ -1210,6 +1251,7 @@ final class FileTranslationFileStore implements TranslationFileStore
 
     private function flushSourceCache(TranslationSourceData $source): void
     {
+        BuildTranslationMemorySuggestionsAction::forgetMemory();
         $sourceCacheKey = $this->sourceCacheKey($source);
 
         unset($this->localesCache[$sourceCacheKey]);
@@ -1250,7 +1292,38 @@ final class FileTranslationFileStore implements TranslationFileStore
     {
         $value = $row[$index] ?? '';
 
-        return is_string($value) ? $value : '';
+        return is_string($value) ? $this->restoreCsvFormula($value) : '';
+    }
+
+    /**
+     * Spreadsheets run cells that start with = + - @ or a control character as formulas, so
+     * the export prefixes them with an apostrophe and the import removes it again.
+     */
+    private function neutraliseCsvFormula(string $value): string
+    {
+        return $this->startsLikeCsvFormula($value) ? "'" . $value : $value;
+    }
+
+    private function restoreCsvFormula(string $value): string
+    {
+        return $value !== '' && $value[0] === "'" && $this->startsLikeCsvFormula(substr($value, 1)) ? substr($value, 1) : $value;
+    }
+
+    /**
+     * A value that starts with a formula character, or with an apostrophe in front of one, is
+     * written with an extra apostrophe so the import can tell an escape from the original text.
+     */
+    private function startsLikeCsvFormula(string $value): bool
+    {
+        if ($value === '') {
+            return false;
+        }
+
+        if (strpbrk($value[0], "=+-@\t\r") !== false) {
+            return true;
+        }
+
+        return $value[0] === "'" && $this->startsLikeCsvFormula(substr($value, 1));
     }
 
     /**

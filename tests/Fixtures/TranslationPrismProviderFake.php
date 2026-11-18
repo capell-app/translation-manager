@@ -33,6 +33,11 @@ final class TranslationPrismProviderFake extends PrismProvider
         );
     }
 
+    public function hasCredentials(): bool
+    {
+        return true;
+    }
+
     public function isAvailable(): bool
     {
         return true;
