@@ -10,14 +10,14 @@ Because changes are written to your language files, the server needs a language 
 
 Wording from packages is saved as your own copy, so a package update doesn't overwrite it. Saving checks that placeholders, plural forms and any glossary terms you have set still match the original. You can create a language, duplicate one, or export CSV, PO and XLIFF files for an outside translator and paste the translated file back in. Publish readiness marks each language as ready or not and shows how many entries are still missing or out of date.
 
-- **Price and availability:** Check current availability and price on the [Capell Marketplace listing](https://capell.app/extensions/translation-manager).
-- **Licence:** Check the licence terms on the [Capell Marketplace listing](https://capell.app/extensions/translation-manager).
-- **Requires:** `PHP ^8.4`, `capell-app/admin ^1.0.66`, `capell-app/core ^1.0.75`, `lorisleiva/laravel-actions ^2.8`, `spatie/laravel-data ^4.5`, `spatie/laravel-package-tools ^1.14.1`.
-- **Install:** `composer require capell-app/translation-manager`.
+- **Price and availability:** Check current availability and price on the [Capell Marketplace listing](https://capell.app/marketplace/extensions/translation-manager).
+- **Licence:** Check the licence terms on the [Capell Marketplace listing](https://capell.app/marketplace/extensions/translation-manager).
+- **Requires:** `PHP ^8.4`, `capell-app/admin ^1.0.78`, `capell-app/core ^1.0.75`, `lorisleiva/laravel-actions ^2.8`, `spatie/laravel-data ^4.5`, `spatie/laravel-package-tools ^1.14.1`.
+- **Install:** `composer require capell-app/translation-manager:@beta`.
 
 ## Quick Start
 
-1. Install the package: `composer require capell-app/translation-manager`.
+1. Install the package: `composer require capell-app/translation-manager:@beta`.
 2. Open the package admin surface at `/admin/translation-manager` and confirm Translation Manager is available.
 
 ## For Developers
@@ -30,7 +30,7 @@ A TranslationFileStore contract separates file access from focused comparison an
 
 ## Limits And Pitfalls
 
-- Install the required Capell packages at the versions in `composer.json`: `capell-app/admin ^1.0.66`, `capell-app/core ^1.0.75`.
+- Install the required Capell packages at the versions in `composer.json`: `capell-app/admin ^1.0.78`, `capell-app/core ^1.0.75`.
 - Run migrations before opening package resources or public routes.
 
 ## Screens And Workflow

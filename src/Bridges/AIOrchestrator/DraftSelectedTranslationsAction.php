@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Capell\TranslationManager\Integrations\AI;
+namespace Capell\TranslationManager\Bridges\AIOrchestrator;
 
 use Capell\AIOrchestrator\Data\AIOrchestratorRunData;
 use Capell\TranslationManager\Actions\TranslateSelectedEntriesAction;

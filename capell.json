@@ -108,7 +108,7 @@
             "requiresTimeouts": true,
             "requiresSecretRedaction": true,
             "clients": [
-                "Capell\\TranslationManager\\Integrations\\AI\\PrismTranslationAITranslator"
+                "Capell\\TranslationManager\\Bridges\\AIOrchestrator\\PrismTranslationAITranslator"
             ]
         },
         "adminSurface": {

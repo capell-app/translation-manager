@@ -47,7 +47,8 @@ final class BuildTranslationMemorySuggestionsAction
     {
         $version = Cache::get(self::VERSION_KEY, 0);
 
-        return is_int($version) ? $version : 0;
+        // The Redis store returns a stored number as a numeric string.
+        return is_numeric($version) ? (int) $version : 0;
     }
 
     private static function memoryCacheKey(string $sourceKey, string $sourceLocale, string $targetLocale): string

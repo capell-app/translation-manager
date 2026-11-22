@@ -10,21 +10,21 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\TranslationManager\Actions\EnsureTranslationManagerPermissionsAction;
+use Capell\TranslationManager\Bridges\AIOrchestrator\PrismTranslationAITranslator;
+use Capell\TranslationManager\Bridges\AIOrchestrator\TranslationManagerAIOrchestratorModule;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
 use Capell\TranslationManager\Contracts\TranslationFileStore;
 use Capell\TranslationManager\Contracts\TranslationSourceResolver;
-use Capell\TranslationManager\Integrations\AI\PrismTranslationAITranslator;
-use Capell\TranslationManager\Integrations\AI\TranslationManagerAIOrchestratorModule;
 use Capell\TranslationManager\Support\ConfigTranslationSourceResolver;
 use Capell\TranslationManager\Support\FileTranslationFileStore;
 use Capell\TranslationManager\Support\NullTranslationAITranslator;
+use Illuminate\Auth\Events\Authenticated;
+use Illuminate\Support\Facades\Event;
 use Override;
 use Spatie\LaravelPackageTools\Package;
 
 final class TranslationManagerServiceProvider extends AbstractPackageServiceProvider
 {
-    private const string AI_ORCHESTRATOR_PACKAGE = 'capell-app/ai-orchestrator';
-
     public static string $name = 'capell-translation-manager';
 
     public static string $packageName = 'capell-app/translation-manager';
@@ -73,8 +73,11 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
 
     private function registerOptionalAIOrchestratorIntegration(): self
     {
-        if (! CapellCore::isPackageAvailable(self::AI_ORCHESTRATOR_PACKAGE)
-            || $this->app->getProvider(AIOrchestratorServiceProvider::class) === null) {
+        if (! CapellCore::isPackageAvailable('capell-app/ai-orchestrator')) {
+            return $this;
+        }
+
+        if ($this->app->getProvider(AIOrchestratorServiceProvider::class) === null) {
             return $this;
         }
 
@@ -94,10 +97,21 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
 
     private function ensurePermissions(): void
     {
-        $table = config('permission.table_names.permissions', 'permissions');
+        // The permission rows are only read once someone is signed in, so the sync waits for
+        // the first authenticated user instead of probing the schema while the app boots.
+        $synced = false;
 
-        if (is_string($table) && resolve(RuntimeSchemaState::class)->hasTable($table)) {
-            EnsureTranslationManagerPermissionsAction::run();
-        }
+        Event::listen(Authenticated::class, static function () use (&$synced): void {
+            if ($synced) {
+                return;
+            }
+
+            $synced = true;
+            $table = config('permission.table_names.permissions', 'permissions');
+
+            if (is_string($table) && resolve(RuntimeSchemaState::class)->hasTable($table)) {
+                EnsureTranslationManagerPermissionsAction::run();
+            }
+        });
     }
 }

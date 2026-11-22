@@ -32,6 +32,8 @@ use Capell\TranslationManager\Tests\Fixtures\CountingFilesystem;
 use Capell\TranslationManager\Tests\Fixtures\PackageTranslationFixtureServiceProvider;
 use Capell\TranslationManager\Tests\Fixtures\PauseAfterTranslationPublishFilesystem;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
@@ -1160,3 +1162,33 @@ it('previews an import without writing anything', function (string $format): voi
         ->and($result->importedCount)->toBe(1)
         ->and(File::get($this->appLanguagePath . '/fr/messages.php'))->toBe($before);
 })->with(['csv', 'po', 'xliff']);
+
+it('forgets translation memory on a write when the cache returns the memory version as a numeric string', function (): void {
+    useTranslationMemoryNumericStringCache();
+    $entries = [new TranslationEntryData('items', 'Hello', null, 'missing', true)];
+    File::put($this->appLanguagePath . '/fr/messages.php', '<?php return [];');
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', ['other' => 'Autre']);
+
+    expect(BuildTranslationMemorySuggestionsAction::run('app', 'en', 'fr', $entries))->toHaveCount(0);
+
+    SaveTranslationEntriesAction::run('app', 'php:messages', 'fr', ['title' => 'Salut']);
+
+    expect(BuildTranslationMemorySuggestionsAction::run('app', 'en', 'fr', $entries))->toHaveCount(1);
+});
+
+/** Makes the default cache return stored numbers as numeric strings, as the Redis store (and Valkey) does. */
+function useTranslationMemoryNumericStringCache(): void
+{
+    Cache::extend('translation-memory-numeric-strings', fn (): Repository => Cache::repository(new class extends ArrayStore
+    {
+        #[Override]
+        public function get($key): mixed
+        {
+            $value = parent::get($key);
+
+            return is_int($value) || is_float($value) ? (string) $value : $value;
+        }
+    }));
+    config()->set('cache.stores.translation-memory-numeric-strings', ['driver' => 'translation-memory-numeric-strings']);
+    config()->set('cache.default', 'translation-memory-numeric-strings');
+}

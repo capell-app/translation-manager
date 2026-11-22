@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Capell\AIOrchestrator\Data\AIOrchestratorRunData;
 use Capell\AIOrchestrator\Enums\AIOrchestratorApprovalLevel;
+use Capell\TranslationManager\Bridges\AIOrchestrator\DraftSelectedTranslationsAction;
+use Capell\TranslationManager\Bridges\AIOrchestrator\TranslationManagerAIOrchestratorModule;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
 use Capell\TranslationManager\Contracts\TranslationFileStore;
 use Capell\TranslationManager\Data\AITranslationSuggestionData;
@@ -14,8 +16,6 @@ use Capell\TranslationManager\Data\TranslationFileData;
 use Capell\TranslationManager\Data\TranslationSourceData;
 use Capell\TranslationManager\Data\TranslationWriteData;
 use Capell\TranslationManager\Health\TranslationManagerHealthCheck;
-use Capell\TranslationManager\Integrations\AI\DraftSelectedTranslationsAction;
-use Capell\TranslationManager\Integrations\AI\TranslationManagerAIOrchestratorModule;
 use Capell\TranslationManager\Support\ConfigTranslationSourceResolver;
 use Capell\TranslationManager\Support\LocaleValidator;
 use Capell\TranslationManager\Support\NullTranslationAITranslator;

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use Capell\TranslationManager\Bridges\AIOrchestrator\PrismTranslationAITranslator;
 use Capell\TranslationManager\Data\TranslationEntryData;
-use Capell\TranslationManager\Integrations\AI\PrismTranslationAITranslator;
 use Capell\TranslationManager\Tests\Fixtures\TranslationPrismProviderFake;
 use Capell\TranslationManager\Tests\TranslationManagerTestCase;
 

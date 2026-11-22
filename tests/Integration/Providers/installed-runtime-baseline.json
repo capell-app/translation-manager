@@ -5,11 +5,11 @@
         "default": {
             "source": {
                 "ref": "HEAD",
-                "commit": "f45ee22758da4041b61cb0e9f38aa68c93527e03",
+                "commit": "ffed3d8caddc95dd6cbe7e751033d443dec2e966",
                 "providers": {
                     "Providers/AdminServiceProvider.php": "de83168ce44c1c5739cfe4d2defcd481a314617c24969fc67ba77cc2b3de872c",
                     "Providers/MigrationMetadataServiceProvider.php": "e4aa6cb0f463251039e2bab62975e01ee158e85524abe2f25631fde8653e0235",
-                    "Providers/TranslationManagerServiceProvider.php": "57c2a240cc1d0a635d7f68d44eea9749cc3fe67fc51445b6af36f1abbfb44fdb"
+                    "Providers/TranslationManagerServiceProvider.php": "ed009787b891f7e8a25aae0ae4ede29cddcdeea89e0b0282b78c1397097fefec"
                 },
                 "configure": null
             },
@@ -112,6 +112,17 @@
                         "Capell\\TranslationManager\\Providers\\TranslationManagerServiceProvider",
                         "Capell\\TranslationManager\\Providers\\MigrationMetadataServiceProvider",
                         "Capell\\TranslationManager\\Providers\\AdminServiceProvider"
+                    ]
+                },
+                "listeners": {
+                    "Illuminate\\Auth\\Events\\Authenticated": [
+                        [
+                            "<package>/src/Providers/TranslationManagerServiceProvider.php",
+                            "static Capell\\TranslationManager\\Providers\\TranslationManagerServiceProvider():void source=c43df88e6cd468ad4ea41ca8ede33a96",
+                            {
+                                "synced": false
+                            }
+                        ]
                     ]
                 },
                 "manifest-health": [

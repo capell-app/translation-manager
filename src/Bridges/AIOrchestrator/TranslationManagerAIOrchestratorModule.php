@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Capell\TranslationManager\Integrations\AI;
+namespace Capell\TranslationManager\Bridges\AIOrchestrator;
 
 use Capell\AIOrchestrator\Contracts\AIOrchestratorModule;
 use Capell\AIOrchestrator\Data\AIOrchestratorCapabilityData;

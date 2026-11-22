@@ -1,7 +1,8 @@
 {
     "package": "translation-manager",
     "composerName": "capell-app/translation-manager",
-    "generatedFor": "deployment-screenshot-runner",
+    "generatedFor": "shared-capell-screenshot-runner",
+    "provenancePolicy": "runner-only-v1",
     "requiresInstalledPackage": true,
     "outputDirectory": "packages/translation-manager/docs/screenshots",
     "entries": [
