@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\TranslationManager\Providers;
 
-use Capell\AIOrchestrator\Providers\AIOrchestratorServiceProvider;
-use Capell\AIOrchestrator\Support\AIOrchestratorModuleRegistry;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\TranslationManager\Actions\EnsureTranslationManagerPermissionsAction;
-use Capell\TranslationManager\Bridges\AIOrchestrator\PrismTranslationAITranslator;
-use Capell\TranslationManager\Bridges\AIOrchestrator\TranslationManagerAIOrchestratorModule;
+use Capell\TranslationManager\Bridges\AIOrchestrator\TranslationManagerAIOrchestratorBridge;
 use Capell\TranslationManager\Contracts\TranslationAITranslator;
 use Capell\TranslationManager\Contracts\TranslationFileStore;
 use Capell\TranslationManager\Contracts\TranslationSourceResolver;
@@ -77,20 +74,7 @@ final class TranslationManagerServiceProvider extends AbstractPackageServiceProv
             return $this;
         }
 
-        if ($this->app->getProvider(AIOrchestratorServiceProvider::class) === null) {
-            return $this;
-        }
-
-        $this->app->singleton(TranslationAITranslator::class, PrismTranslationAITranslator::class);
-
-        $this->app->booted(function (): void {
-            $this->callAfterResolving(
-                AIOrchestratorModuleRegistry::class,
-                function (AIOrchestratorModuleRegistry $registry): void {
-                    $registry->register(new TranslationManagerAIOrchestratorModule);
-                },
-            );
-        });
+        TranslationManagerAIOrchestratorBridge::register($this->app);
 
         return $this;
     }
