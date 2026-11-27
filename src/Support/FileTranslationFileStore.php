@@ -429,7 +429,8 @@ final class FileTranslationFileStore implements TranslationFileStore
      */
     private function withExclusiveWriteLock(string $path, Closure $callback): mixed
     {
-        $this->filesystem->ensureDirectoryExists(dirname($path));
+        // The lock lives in storage, so taking it creates nothing beside the translations. A read must work on a host
+        // whose release root is read-only; the publish step creates the translation directory when it writes.
         $lockPath = storage_path('framework/cache/capell-translation-manager/locks/' . hash('sha256', $path) . '.lock');
         $this->filesystem->ensureDirectoryExists(dirname($lockPath));
 

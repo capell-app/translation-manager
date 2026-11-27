@@ -6,6 +6,7 @@
     "kind": "package",
     "capellApiVersion": "^1.0",
     "version": "1.0.0",
+    "launchStatus": "preview",
     "description": "Translate interface wording in your language files from the admin, with missing and out-of-date entries flagged and CSV, PO and XLIFF export.",
     "product": {
         "group": "Capell Publishing",

@@ -147,6 +147,19 @@ it('lists locales and compares source and target entries', function (): void {
         ->and($countEntry->editable)->toBeFalse();
 });
 
+it('compares a package locale without creating its override directory', function (): void {
+    // Catches: opening the Translation Manager page on a host whose release root is read-only. Reading a comparison
+    // created lang/vendor/<namespace>/<locale> before reading anything, so the page failed with "mkdir(): Permission
+    // denied" although nothing was being written.
+    $overrideDirectory = lang_path('vendor/capell-fixture-package');
+    File::deleteDirectory($overrideDirectory);
+
+    $entries = collect(LoadTranslationComparisonAction::run('package:capell-app/fixture-package', 'php:package', 'en', 'de'));
+
+    expect($entries->firstWhere('key', 'heading')?->status)->toBe('missing')
+        ->and(File::isDirectory($overrideDirectory))->toBeFalse();
+});
+
 it('marks translated entries stale when the source file is newer than the target file', function (): void {
     $sourcePath = $this->appLanguagePath . '/en/messages.php';
     $targetPath = $this->appLanguagePath . '/fr/messages.php';
